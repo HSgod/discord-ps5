@@ -1,0 +1,16 @@
+# Build output
+*.o
+*.a
+*.so
+*.elf
+*.bin
+build/
+out/
+
+# macOS
+.DS_Store
+
+# Local config / secrets — never commit tokens
+.env
+token*
+*.token

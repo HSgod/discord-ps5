@@ -1,0 +1,6 @@
+.git
+.gitignore
+*.o
+*.elf
+build/
+out/
