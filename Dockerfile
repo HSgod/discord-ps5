@@ -17,6 +17,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
         bash \
         ca-certificates \
+        curl \
         clang-18 \
         lld-18 \
         llvm-18 \
@@ -32,6 +33,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
         git \
         socat \
+        ccache \
+    && rm -rf /var/lib/apt/lists/*
+
+# The SDK targets x86_64 (prospero), but on an arm64 host clang-18 ships only
+# the aarch64 compiler-rt builtins, so a link fails with
+# "missing link input: .../libclang_rt.builtins-x86_64.a".
+# Pulling the amd64 builtins through multiarch keeps clang itself running
+# natively (much faster than emulating the whole build via --platform).
+# This base image is arm64, so apt points at ports.ubuntu.com, which carries no
+# amd64 packages: the arm64 stanzas are pinned to arm64 and an amd64-only
+# sources file is added against archive.ubuntu.com.
+RUN sed -i 's/^Types: deb$/Types: deb\nArchitectures: arm64/' /etc/apt/sources.list.d/ubuntu.sources \
+    && printf '%s\n' \
+        'Types: deb' \
+        'Architectures: amd64' \
+        'URIs: http://archive.ubuntu.com/ubuntu/' \
+        'Suites: noble noble-updates noble-backports noble-security' \
+        'Components: main universe restricted multiverse' \
+        'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+        > /etc/apt/sources.list.d/amd64.sources \
+    && dpkg --add-architecture amd64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libclang-rt-18-dev:amd64 \
+    && test -f /usr/lib/llvm-18/lib/clang/18/lib/linux/libclang_rt.builtins-x86_64.a \
+    && rm -rf /var/lib/apt/lists/*
+
+# Host preview (T1.3): ps5-homebrew-ui renders off-screen through Mesa's
+# surfaceless EGL and links -lEGL -lGL. llvmpipe (in libgl1-mesa-dri) is the
+# software renderer used in a VM without a GPU.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libegl-dev \
+        libgl-dev \
+        libglvnd-dev \
+        libegl-mesa0 \
+        libgl1-mesa-dri \
+        libgbm1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Pinned ps5-payload-sdk release (see THIRD_PARTY.md / report for the hash).
