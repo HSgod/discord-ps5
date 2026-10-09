@@ -71,6 +71,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgbm1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Packaging (T1.6): the `ffpkg` target builds UFS2Tool, and
+# tools/setup-packaging-dependencies.sh requires the .NET SDK (>= 8) to compile
+# it. Ubuntu 24.04 ships it in universe; the amd64/arm64 sources above already
+# cover the architectures this base image needs.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        dotnet-sdk-8.0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Pinned ps5-payload-sdk release (see THIRD_PARTY.md / report for the hash).
 RUN wget -q "https://github.com/ps5-payload-dev/sdk/releases/download/${SDK_VERSION}/ps5-payload-sdk.zip" \
         -O /tmp/ps5-payload-sdk.zip \
