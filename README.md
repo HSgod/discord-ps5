@@ -36,7 +36,9 @@ can shut down and reopen without logging you in again.
 
 ## What you need
 
-- A PlayStation 5 on firmware 13.60 with homebrew enabled. Earlier firmware is not supported.
+- A PlayStation 5 that can run homebrew. Accord has been built and tested on firmware 13.60; other
+  firmware versions are simply untested — whether one works depends on the homebrew support
+  available for it, not on Accord.
 - A Discord account. Accord logs in as you, a normal user — not as a bot.
 - Nobody watching over your shoulder while you type a message, ideally.
 
