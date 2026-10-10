@@ -6,9 +6,10 @@
  * port, and appends every line to a log file. It never talks to Discord, never
  * opens TLS and never contacts the title: the one question it answers is
  * whether a payload keeps running, and keeps its audio, while the console is
- * busy with something else. At start it also builds one MLS key package through
- * the DAVE facade, which proves that libdave, mlspp and OpenSSL are linked into
- * the payload and that their exceptions stop at the facade.
+ * busy with something else. At start it runs one unwind self-test and then builds one
+ * MLS key package through the DAVE facade, which proves that libdave, mlspp and
+ * OpenSSL are linked into the payload and that their exceptions stop at the
+ * facade. Both answers go to the log, and the self-test also to /status.
  */
 
 #include <array>
@@ -121,6 +122,18 @@ int main(int argc, char **argv)
          static_cast<int>(::getpid()), static_cast<unsigned>(options.port),
          name_of(audio_port).data());
 
+    // T6.0-3: first check that an exception raised inside the libraries comes back
+    // to us at all, because the facade's catch (...) is worth nothing without it.
+    // The answer goes to the log and into /status, so the console start of T2.3
+    // settles the one question the host build cannot: libc++/libunwind there.
+    const accord::ps5::dave::UnwindSelfTest unwind =
+        accord::ps5::dave::run_unwind_self_test();
+    logf(unwind.ok() ? LogLevel::info : LogLevel::error,
+         "unwind selftest: %s (runtime_error=%s, mlspp=%s, tls_parse=%s)",
+         accord::ps5::dave::to_string(unwind), unwind.runtime_error_caught ? "caught" : "missed",
+         unwind.mlspp_error_caught ? "caught" : "missed",
+         unwind.tls_parse_error_caught ? "caught" : "missed");
+
     // T6.0-2: the payload is linked with DAVE, so the daemon asks the library for
     // a key package before it touches audio or the network. The facade hands back
     // a status code rather than an exception, so a broken library cannot take the
@@ -182,6 +195,7 @@ int main(int argc, char **argv)
             status.port = options.port;
             status.audio_port = name_of(audio_port);
             status.last_error = audio_error.empty() ? server.last_error() : audio_error;
+            status.unwind_selftest = accord::ps5::dave::to_string(unwind); // a literal, so it outlives this
 
             Response response;
             response.content_type = "application/json";

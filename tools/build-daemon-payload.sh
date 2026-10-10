@@ -49,7 +49,10 @@ done < <(find daemon/src core platform/ps5/dave -name '*.cpp' | sort)
 
 # The archives go into a group because they reference each other both ways
 # (mlspp pulls in hpke and tls_syntax, tls_syntax pulls in bytes).
-"$cc" -std=c++20 -O2 -Wall -Wextra -I. -I"$dave_prefix/include" \
+# The second include is mlspp's own convention: its headers are grouped under
+# dave_prefix/include/mlspp so that the <namespace.h> and <tls/...> inside them
+# resolve. The unwind self-test (T6.0-3) includes one of them.
+"$cc" -std=c++20 -O2 -Wall -Wextra -I. -I"$dave_prefix/include" -I"$dave_prefix/include/mlspp" \
     -o "$out" "${sources[@]}" \
     -Wl,--start-group "${dave_libs[@]}" -Wl,--end-group \
     -lSceAudioOut

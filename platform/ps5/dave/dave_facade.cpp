@@ -7,7 +7,14 @@
 
 #include <dave/dave.h>
 
+// T6.0-3: mlspp's headers, included the way libdave includes them (the prefix
+// puts them under a directory of their own so that <namespace.h> inside them
+// resolves). Only the self-test uses them; the probe below goes through dave.h.
+#include <bytes/bytes.h>
+
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace accord::ps5::dave
 {
@@ -41,6 +48,65 @@ void on_mls_failure(const char * /*source*/, const char *reason, void *user_data
     sink->reason[i] = '\0';
 }
 } // namespace
+
+const char *to_string(const UnwindSelfTest &test) noexcept
+{
+    return test.ok() ? "ok" : "failed";
+}
+
+UnwindSelfTest run_unwind_self_test() noexcept
+{
+    UnwindSelfTest test;
+
+    // A plain runtime error, thrown and caught in this file. Nothing else is
+    // involved, so a miss here means unwinding itself does not work.
+    try
+    {
+        throw std::runtime_error{"unwind self test"};
+    }
+    catch (const std::runtime_error &)
+    {
+        test.runtime_error_caught = true;
+    }
+    catch (...)
+    {
+        // Something arrived, but not as the type that was thrown: unwinding ran
+        // and the type did not survive it.
+    }
+
+    // Thrown by mlspp's compiled code (bytes.cpp, in libbytes.a) and caught by
+    // its exact type here, so the unwind tables of another archive are exercised.
+    // from_hex refuses an odd-length string.
+    try
+    {
+        (void)::mlspp::bytes_ns::from_hex("abc");
+    }
+    catch (const std::invalid_argument &)
+    {
+        test.mlspp_error_caught = true;
+    }
+    catch (...)
+    {
+    }
+
+    // The parse path the task names: a length prefix that promises more bytes
+    // than there are makes tls_syntax throw ReadError, a std::invalid_argument.
+    try
+    {
+        const std::vector<std::uint8_t> truncated{0x02};
+        std::vector<std::uint8_t> parsed;
+        ::mlspp::tls::unmarshal(truncated, parsed);
+    }
+    catch (const ::mlspp::tls::ReadError &)
+    {
+        test.tls_parse_error_caught = true;
+    }
+    catch (...)
+    {
+    }
+
+    return test;
+}
 
 const char *to_string(Status status) noexcept
 {

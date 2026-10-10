@@ -106,6 +106,8 @@ std::string render_status_json(const Status &status)
     append_json_string(out, status.audio_port);
     out += ",\"last_error\":";
     append_json_string(out, status.last_error);
+    out += ",\"unwind_selftest\":";
+    append_json_string(out, status.unwind_selftest);
     out += "}\n";
     return out;
 }

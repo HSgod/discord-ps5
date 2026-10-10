@@ -42,7 +42,8 @@ struct Status
     bool tone_playing = false;
     std::uint16_t port = 0;
     std::string_view audio_port;
-    std::string_view last_error; // empty when nothing has failed
+    std::string_view last_error;      // empty when nothing has failed
+    std::string_view unwind_selftest; // "ok" or "failed", see T6.0-3
 };
 
 std::string render_status_json(const Status &status);

@@ -51,6 +51,28 @@ struct KeyPackageProbe
 // It never throws, never aborts and never lets an exception out.
 KeyPackageProbe probe_key_package(std::uint64_t group_id, std::string_view self_user_id) noexcept;
 
+// T6.0-3: each step throws on purpose, one layer deeper than the last, and is
+// caught here by its exact type. catch (...) above is only worth writing if
+// unwinding works and the type survives the trip, and on the console that
+// happens on libc++/libunwind -- the one part the host build cannot prove.
+struct UnwindSelfTest
+{
+    bool runtime_error_caught = false;   // thrown in this file
+    bool mlspp_error_caught = false;     // thrown by mlspp's own object code
+    bool tls_parse_error_caught = false; // thrown on the tls_syntax parse path
+
+    bool ok() const noexcept
+    {
+        return runtime_error_caught && mlspp_error_caught && tls_parse_error_caught;
+    }
+};
+
+// Never throws: every step catches what it throws, including the surprises.
+UnwindSelfTest run_unwind_self_test() noexcept;
+
 // Stable short name for the log line, e.g. "ok" or "threw".
 const char *to_string(Status status) noexcept;
+
+// "ok" when every step of the self-test came back, "failed" otherwise.
+const char *to_string(const UnwindSelfTest &test) noexcept;
 } // namespace accord::ps5::dave

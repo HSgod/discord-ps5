@@ -14,7 +14,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 prefix="$root/build/dave/prefix-host"
 out="$root/build/dave/host/facade-smoke"
 
-clang++-18 -std=c++20 -O1 -Wall -Wextra -I"$root" -I"$prefix/include" \
+clang++-18 -std=c++20 -O1 -Wall -Wextra -I"$root" -I"$prefix/include" -I"$prefix/include/mlspp" \
     -o "$out" \
     "$root/platform/ps5/dave/dave_facade.cpp" \
     "$root/tools/dave/facade_host_smoke.cpp" \

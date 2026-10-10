@@ -13,6 +13,14 @@
 
 int main()
 {
+    // T6.0-3 first, in the order the daemon runs them.
+    const accord::ps5::dave::UnwindSelfTest unwind = accord::ps5::dave::run_unwind_self_test();
+    std::printf("unwind_selftest: %s (runtime_error=%s mlspp=%s tls_parse=%s)\n",
+                accord::ps5::dave::to_string(unwind),
+                unwind.runtime_error_caught ? "caught" : "missed",
+                unwind.mlspp_error_caught ? "caught" : "missed",
+                unwind.tls_parse_error_caught ? "caught" : "missed");
+
     const accord::ps5::dave::KeyPackageProbe probe =
         accord::ps5::dave::probe_key_package(0, "0");
 
@@ -21,5 +29,6 @@ int main()
                 static_cast<unsigned>(probe.protocol_version),
                 probe.library_reported_failure ? "yes" : "no", probe.reported_reason);
 
-    return probe.status == accord::ps5::dave::Status::ok ? 0 : 1;
+    const bool ok = unwind.ok() && probe.status == accord::ps5::dave::Status::ok;
+    return ok ? 0 : 1;
 }

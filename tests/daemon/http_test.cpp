@@ -48,11 +48,23 @@ MICRO_TEST(status_json_lists_every_counter)
     status.port = 8280;
     status.audio_port = "voice";
     status.last_error = "";
+    status.unwind_selftest = "ok";
 
     MICRO_CHECK_EQ(render_status_json(status),
                    std::string{"{\"uptime_seconds\":12,\"audio_frames\":3456,\"audio_open\":true,"
                                "\"tone_playing\":false,\"port\":8280,\"audio_port\":\"voice\","
-                               "\"last_error\":\"\"}\n"});
+                               "\"last_error\":\"\",\"unwind_selftest\":\"ok\"}\n"});
+}
+
+MICRO_TEST(status_json_carries_the_unwind_selftest_verdict)
+{
+    Status status;
+    status.unwind_selftest = "ok";
+    MICRO_CHECK(render_status_json(status).find("\"unwind_selftest\":\"ok\"") != std::string::npos);
+
+    status.unwind_selftest = "failed";
+    MICRO_CHECK(render_status_json(status).find("\"unwind_selftest\":\"failed\"") !=
+                std::string::npos);
 }
 
 MICRO_TEST(status_json_escapes_the_error_text)
