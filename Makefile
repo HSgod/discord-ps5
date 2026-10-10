@@ -5,6 +5,7 @@
 #   platform/ps5/   PS5 implementation of the platform seams
 #   platform/host/  host substitutes: the test sinks and the snapshot runner
 #   ui/             screens, and the vendored drawing kit under ui/kit/
+#   daemon/         the background payload: a second artifact from this tree
 #   tests/          host tests
 #   sce_sys/        title identity (param.json)
 #
@@ -12,6 +13,7 @@
 #   make            build the PS5 application (needs the builder container)
 #   make test       build and run the host tests (native toolchain, no container)
 #   make host-snapshots  render every screen to build/snapshots/*.png (container, Mesa)
+#   make payload    build the background daemon to dist/discord-ps5d.elf (container)
 #   make ffpkg      build the PS5 application and its UFS2 image, copied to dist/
 #   make stage      only stage the sources into the boilerplate harness
 #   make clean      drop host build output
@@ -20,8 +22,11 @@
 CXX      ?= c++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 
-# snapshot_main.cpp has a main() of its own: it is the snapshot runner, not a test.
-HOST_SOURCES := $(shell find core platform/host tests -name '*.cpp' ! -name 'snapshot_main.cpp' | sort)
+# snapshot_main.cpp and the daemon's main.cpp carry a main() of their own: one is
+# the snapshot runner, the other the payload entry point, neither is a test.
+# audio_ps5.cpp links against libSceAudioOut, so it stays out of the host build.
+HOST_SOURCES := $(shell find core platform/host daemon tests -name '*.cpp' \
+                   ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort)
 HOST_BINARY  := build/host-tests
 
 # Which of the kit's themes the snapshots are rendered in.
@@ -37,7 +42,7 @@ APP_VARS := APP_SOURCE_DIR=.local/discord-ps5/src \
             APP_PARAM=.local/discord-ps5/sce_sys/param.json \
             APP_INCLUDE_PATHS=.local/discord-ps5/src
 
-.PHONY: all app stage ffpkg test host-snapshots clean distclean
+.PHONY: all app stage ffpkg test host-snapshots payload clean distclean
 
 all: app
 
@@ -67,6 +72,12 @@ test: $(HOST_BINARY)
 host-snapshots:
 	@printf '%s\n' '==> [host-snapshots] rendering the screens (theme: $(THEME))'
 	@scripts/dev.sh bash tools/host-snapshots.sh $(THEME)
+
+# The daemon is a payload, not a title: the bare SDK builds it rather than the
+# boilerplate harness, and it lands in dist/ as a single .elf.
+payload:
+	@printf '%s\n' '==> [payload] background daemon (elf) in the builder container'
+	@scripts/dev.sh bash tools/build-daemon-payload.sh
 
 clean:
 	@rm -rf build
