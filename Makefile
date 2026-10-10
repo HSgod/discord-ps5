@@ -23,6 +23,7 @@
 #   make distclean  also drop the staged tree inside the boilerplate
 
 CXX      ?= c++
+CC       ?= cc
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 
 # snapshot_main.cpp and the daemon's main.cpp carry a main() of their own: one is
@@ -35,6 +36,26 @@ HOST_SOURCES := $(shell find core platform/host daemon tests -name '*.cpp' \
                    ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort) \
                 ui/nav.cpp
 HOST_BINARY  := build/host-tests
+
+# core/json.cpp parses with yyjson, fetched and pinned by tools/fetch-yyjson.sh
+# into third_party/yyjson (not committed). The pinned parser is a prerequisite
+# of every target that compiles core/, so the fetch happens by itself the first
+# time and is a no-op afterwards.
+JSON_LIB   := third_party/yyjson
+JSON_OBJ   := build/yyjson.o
+
+$(JSON_LIB)/yyjson.c:
+	@bash tools/fetch-yyjson.sh
+
+.PHONY: json-lib
+
+json-lib: $(JSON_LIB)/yyjson.c
+
+# C, not C++: the parser is a C99 library, and core/json.cpp keeps it behind
+# its own header so nothing else in the tree sees it.
+$(JSON_OBJ): $(JSON_LIB)/yyjson.c
+	@mkdir -p $(@D)
+	$(CC) -O2 -Wall -Wextra -c $(JSON_LIB)/yyjson.c -o $@
 
 # Which of the kit's themes the snapshots are rendered in.
 THEME ?= acrylic
@@ -67,7 +88,7 @@ APP_VARS := APP_SOURCE_DIR=.local/accord/src \
 
 all: app
 
-stage:
+stage: $(JSON_LIB)/yyjson.c
 	@bash tools/stage-ps5-sources.sh
 
 # Inside the container: the payload SDK it copies the AGC stubs into, and the
@@ -87,9 +108,9 @@ ffpkg: stage opengl
 	@cp -a $(BOILERPLATE)/dist/$(TITLE_ID).ffpkg dist/
 	@printf '%s\n' "==> [ffpkg] dist/$(TITLE_ID).ffpkg"
 
-$(HOST_BINARY): $(HOST_SOURCES)
+$(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I. $(HOST_SOURCES) -o $@
+	$(CXX) $(CXXFLAGS) -I. $(HOST_SOURCES) $(JSON_OBJ) -o $@
 
 test: $(HOST_BINARY)
 	@printf '%s\n' '==> [test] host unit tests'
@@ -102,7 +123,7 @@ host-snapshots:
 
 # The daemon is a payload, not a title: the bare SDK builds it rather than the
 # boilerplate harness, and it lands in dist/ as a single .elf.
-payload:
+payload: $(JSON_LIB)/yyjson.c
 	@printf '%s\n' '==> [payload] background daemon (elf) in the builder container'
 	@scripts/dev.sh bash tools/build-daemon-payload.sh
 

@@ -23,11 +23,20 @@ theme="${1:-acrylic}"
 rm -rf -- "$build"
 mkdir -p -- "$build/obj" "$output"
 
+# core/json.cpp parses with the pinned parser under third_party/yyjson, which is
+# fetched by tools/fetch-yyjson.sh and compiled here as the C file it is.
+yyjson="$root/third_party/yyjson/yyjson.c"
+[[ -f $yyjson ]] || {
+    printf 'missing %s: run bash tools/fetch-yyjson.sh\n' "$yyjson" >&2
+    exit 2
+}
+
 # ui/kit/host/platform_host.cpp (the kit's sys::log shim) comes in through the
 # find below, like the rest of the kit.
 sources=(
     "$root/platform/host/snapshot_main.cpp"
     "$root/ui/screens.cpp"
+    "$yyjson"
 )
 while IFS= read -r -d '' file; do
     sources+=("$file")

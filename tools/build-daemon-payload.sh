@@ -19,10 +19,23 @@ cd "$root"
 
 sdk="${PS5_PAYLOAD_SDK:?PS5_PAYLOAD_SDK is unset: run this inside the builder container}"
 cc="$sdk/bin/prospero-clang++"
+cc_c="$sdk/bin/prospero-clang"
 dave_prefix="${DAVE_PREFIX:-$root/build/dave/prefix-ps5}"
 
 out="dist/accordd.elf"
 mkdir -p dist
+
+# core/json.cpp reads the pinned parser, and that parser is C: the SDK's C
+# driver compiles it on its own and the object joins the same link as ours.
+yyjson_dir="$root/third_party/yyjson"
+if [ ! -f "$yyjson_dir/yyjson.c" ]; then
+    printf '%s\n' "==> [payload] missing $yyjson_dir/yyjson.c" >&2
+    printf '%s\n' "    fetch it first: bash tools/fetch-yyjson.sh" >&2
+    exit 1
+fi
+yyjson_obj="$root/build/yyjson-ps5.o"
+mkdir -p "$(dirname "$yyjson_obj")"
+"$cc_c" -O2 -Wall -Wextra -c "$yyjson_dir/yyjson.c" -o "$yyjson_obj"
 
 # A missing archive would show up only as a wall of undefined symbols at link
 # time, so each one is named up front with the command that builds it.
@@ -53,7 +66,7 @@ done < <(find daemon/src core platform/ps5/dave -name '*.cpp' | sort)
 # dave_prefix/include/mlspp so that the <namespace.h> and <tls/...> inside them
 # resolve. The unwind self-test (T6.0-3) includes one of them.
 "$cc" -std=c++20 -O2 -Wall -Wextra -I. -I"$dave_prefix/include" -I"$dave_prefix/include/mlspp" \
-    -o "$out" "${sources[@]}" \
+    -o "$out" "${sources[@]}" "$yyjson_obj" \
     -Wl,--start-group "${dave_libs[@]}" -Wl,--end-group \
     -lSceAudioOut
 

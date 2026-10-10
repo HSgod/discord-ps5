@@ -35,6 +35,18 @@ rm -rf -- "$staging/src/platform/ps5/dave" "$staging/src/ui/kit/host"
 
 cp -a -- "$root/sce_sys/param.json" "$staging/sce_sys/param.json"
 
+# core/json.cpp reads the pinned parser as "third_party/yyjson/yyjson.h", which
+# is the path the host tests and the daemon resolve from the repository root.
+# Staging the same pair under src/ keeps that spelling working here too, and the
+# harness compiles the staged .c along with our own.
+json_src="$root/third_party/yyjson"
+[[ -f $json_src/yyjson.c && -f $json_src/yyjson.h ]] || {
+    printf 'missing %s: run tools/fetch-yyjson.sh\n' "$json_src" >&2
+    exit 2
+}
+mkdir -p -- "$staging/src/third_party/yyjson"
+cp -a -- "$json_src/yyjson.c" "$json_src/yyjson.h" "$staging/src/third_party/yyjson/"
+
 # The kit draws its text with SDF atlases it loads from the application's own
 # assets, so the six .huifont files (with their licences) are staged from the
 # vendored kit into assets/fonts, which the harness copies into the .ffpkg as
@@ -47,4 +59,4 @@ kit_assets="$root/third_party/ps5-homebrew-ui/assets/fonts"
 }
 cp -a -- "$kit_assets" "$staging/assets/fonts"
 
-printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json + assets/fonts -> boilerplate/.local/accord'
+printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json + assets/fonts + third_party/yyjson -> boilerplate/.local/accord'

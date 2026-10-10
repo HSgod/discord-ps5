@@ -1,0 +1,23 @@
+{
+  "op": 0,
+  "t": "READY",
+  "s": 1,
+  "d": {
+    "v": 10,
+    "user": {
+      "id": "80351110224678912",
+      "username": "accord",
+      "discriminator": "0",
+      "global_name": "Accord",
+      "bot": false,
+      "verified": true
+    },
+    "guilds": [
+      { "id": "41771983423143937", "unavailable": true, "name": null },
+      { "id": "290926798626357299", "unavailable": true }
+    ],
+    "session_id": "8f3a1c90-1f5d-4a1f-9c2f-6b9d2f0c4e77",
+    "resume_gateway_url": "wss://gateway-us-east1-b.discord.gg",
+    "application": { "id": "80351110224678912", "flags": 0 }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "op": 0,
+  "t": "MESSAGE_CREATE",
+  "s": 42,
+  "d": {
+    "id": "1471229662733062144",
+    "channel_id": "41771983423143937",
+    "guild_id": "290926798626357299",
+    "author": {
+      "id": "80351110224678912",
+      "username": "milosz",
+      "discriminator": "0",
+      "global_name": null,
+      "bot": false
+    },
+    "content": "hej \"Accord\" — idziemy na głos? 🎵",
+    "timestamp": "2026-10-10T21:12:44.512000+00:00",
+    "edited_timestamp": null,
+    "tts": false,
+    "mention_everyone": false,
+    "mentions": [],
+    "attachments": [],
+    "pinned": false,
+    "type": 0
+  }
+}
