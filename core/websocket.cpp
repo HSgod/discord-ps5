@@ -375,6 +375,9 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
             if (!is_valid_utf8(out.payload))
                 return fail(WsStatus::protocol_error, "a decompressed message is not UTF-8");
             out.kind = MessageKind::text;
+            // It reached the caller as text, and it arrived as a piece of the
+            // binary stream: both are worth saying.
+            out.frame_kind = MessageKind::binary;
             return WsStatus::ok;
         }
 
@@ -507,6 +510,7 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
         if (opcode == kOpPong)
         {
             out.kind = MessageKind::pong;
+            out.frame_kind = MessageKind::pong;
             out.payload = std::move(payload);
             return WsStatus::ok;
         }
@@ -532,6 +536,7 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
             close_received_ = true;
             open_ = false;
             out.kind = MessageKind::close;
+            out.frame_kind = MessageKind::close;
             out.close_code = code;
             out.close_reason = payload.size() >= 2 ? payload.substr(2) : std::string{};
 
@@ -552,6 +557,7 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
             if (started_as == kOpText && !is_valid_utf8(message_))
                 return fail(WsStatus::protocol_error, "a text message is not UTF-8");
             out.kind = started_as == kOpText ? MessageKind::text : MessageKind::binary;
+            out.frame_kind = out.kind;
             out.payload = std::move(message_);
             message_.clear();
             return WsStatus::ok;
@@ -567,6 +573,7 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
         if (opcode == kOpText && !is_valid_utf8(payload))
             return fail(WsStatus::protocol_error, "a text message is not UTF-8");
         out.kind = opcode == kOpText ? MessageKind::text : MessageKind::binary;
+        out.frame_kind = out.kind;
         out.payload = std::move(payload);
         return WsStatus::ok;
     }

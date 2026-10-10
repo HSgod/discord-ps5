@@ -88,6 +88,11 @@ enum class MessageKind
 struct Message
 {
     MessageKind kind = MessageKind::none;
+    // The frame on the wire the payload came out of. Same as kind for a message
+    // the peer sent whole; `binary` for an event that came out of the zlib
+    // stream, which is what the gateway's compressed transport puts its events
+    // in and what a caller may want to see for itself.
+    MessageKind frame_kind = MessageKind::none;
     std::string payload;           // the body for text, binary and pong
     std::uint16_t close_code = 0;  // close: the peer's code, 0 when it sent none
     std::string close_reason;      // close: the text the peer attached, if any

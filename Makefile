@@ -13,6 +13,7 @@
 #   make            build the PS5 application (needs the builder container)
 #   make test       build and run the host tests (native toolchain, no container)
 #   make ws-soak    ten minutes of WebSocket frames over loopback TCP (log in build/)
+#   make gateway-hello  build the manual gateway tool of T3.4 (run it by hand)
 #   make host-snapshots  render every screen to build/snapshots/*.png (container, Mesa)
 #   make payload    build the background daemon to dist/accordd.elf (container)
 #   make dave-deps  cross-build OpenSSL 3, mlspp and libdave for the payload (container)
@@ -33,10 +34,20 @@ CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 # Of ui/ only the navigation is host-clean: it is the shell's input logic, with
 # no kit and no SDK in it, which is why it is listed by hand. The screens and
 # the drawing code need the kit and are exercised by `make host-snapshots`.
+# tests/live holds tools with a main() of their own that talk to servers on the
+# internet; they are run by hand and are not part of the suite (see below).
 HOST_SOURCES := $(shell find core platform/host platform/net daemon tests -name '*.cpp' \
+                   ! -path 'tests/live/*' \
                    ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort) \
                 ui/nav.cpp
 HOST_BINARY  := build/host-tests
+
+# The gateway tool of T3.4 is the other side of the same line: it is a host
+# binary, but what it checks is the real Discord, so it is never part of `make
+# test`. Anything that talks to a server nobody in this repository runs belongs
+# in tests/live and gets its own target.
+LIVE_SOURCES := $(shell find core platform/net tests/live -name '*.cpp' | sort)
+LIVE_BINARY  := build/gateway-hello
 
 # The ten-minute soak of the WebSocket client is not a host test: it takes ten
 # minutes and prints a log rather than an exit status, so it links only what it
@@ -164,7 +175,8 @@ APP_VARS := APP_SOURCE_DIR=.local/accord/src \
             'APP_WRAP_SYMBOLS=sceSystemServiceHideSplashScreen malloc calloc realloc free posix_memalign malloc_usable_size' \
             APP_ASSETS=.local/accord/assets
 
-.PHONY: all app stage opengl ffpkg test ws-soak host-snapshots payload dave-deps dave-host-test clean distclean
+.PHONY: all app stage opengl ffpkg test ws-soak gateway-hello host-snapshots payload dave-deps \
+        dave-host-test clean distclean
 
 all: app
 
@@ -212,6 +224,21 @@ $(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(OPENSSL_HOST_LIBS)
 ws-soak: $(SOAK_BINARY)
 	@printf '%s\n' '==> [ws-soak] ten minutes of frames on one connection (log: build/ws-soak.log)'
 	@./$(SOAK_BINARY) 10 | tee build/ws-soak.log
+
+# The gateway tool of T3.4 is built like the soak and run like nothing else in
+# this file: by hand, against discord.com, with the pinned roots compiled in.
+# It is deliberately not a dependency of `make test` -- a suite whose result
+# depends on someone else's server passing or failing is not a suite -- so this
+# target builds it and stops, and the tool itself is what the run looks at.
+$(LIVE_BINARY): $(LIVE_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(CA_OBJ) $(OPENSSL_HOST_LIBS)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -I. -I$(OPENSSL_HOST)/include $(LIVE_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) \
+	    $(CA_OBJ) $(OPENSSL_HOST)/lib/libssl.a $(OPENSSL_HOST)/lib/libcrypto.a -o $@
+
+gateway-hello: $(LIVE_BINARY)
+	@printf '%s\n' '==> [gateway-hello] built; run it by hand:'
+	@printf '%s\n' '    $(LIVE_BINARY)                 the gateway without compression'
+	@printf '%s\n' '    $(LIVE_BINARY) --zlib-stream   with compress=zlib-stream'
 
 # Needs the builder container: Mesa's surfaceless EGL is installed there.
 host-snapshots:

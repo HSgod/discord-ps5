@@ -678,6 +678,7 @@ MICRO_TEST(a_text_frame_from_the_server_arrives_as_text)
     Message message;
     MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
     MICRO_CHECK_EQ(name_of(message.kind), std::string{"text"});
+    MICRO_CHECK_EQ(name_of(message.frame_kind), std::string{"text"});
     MICRO_CHECK_EQ(message.payload, std::string{"witaj"});
     MICRO_CHECK(socket.is_open());
 }
@@ -694,6 +695,7 @@ MICRO_TEST(a_binary_frame_keeps_its_bytes)
     Message message;
     MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
     MICRO_CHECK_EQ(name_of(message.kind), std::string{"binary"});
+    MICRO_CHECK_EQ(name_of(message.frame_kind), std::string{"binary"});
     MICRO_CHECK_EQ(message.payload, bytes);
     MICRO_CHECK_EQ(message.payload.size(), std::size_t{4});
 }
@@ -1172,13 +1174,16 @@ MICRO_TEST(a_compressed_event_arrives_as_text)
     WebSocket socket;
     MICRO_CHECK(open_compressed_session(stream, socket));
 
-    // The frame is binary; the event inside it is not. A caller above this has
-    // no business knowing which one the gateway chose to carry an event in.
+    // The frame is binary; the event inside it is not. That is what the gateway
+    // does with every event on a compressed connection, and the caller can see
+    // it if it wants to: kind says what it is holding, frame_kind where the
+    // bytes came from.
     stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
 
     Message message;
     MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
     MICRO_CHECK_EQ(name_of(message.kind), std::string{"text"});
+    MICRO_CHECK_EQ(name_of(message.frame_kind), std::string{"binary"});
     MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
     MICRO_CHECK(socket.is_open());
 }
