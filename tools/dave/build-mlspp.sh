@@ -24,12 +24,12 @@ common=(-G Ninja
     -DCMAKE_PREFIX_PATH="$prefix"
     -DCMAKE_INSTALL_PREFIX="$prefix")
 
-echo "=== nlohmann/json (nagłówkowa, wydanie v3.11.3) ==="
+echo "=== nlohmann/json (header only, release v3.11.3) ==="
 cmake "${common[@]}" -S "$src/nlohmann-json" -B "$root/build/dave/build-nlohmann" -DJSON_BuildTests=OFF
 cmake --build "$root/build/dave/build-nlohmann" -j "$(nproc)"
 cmake --install "$root/build/dave/build-nlohmann"
 
-echo "=== mlspp (namespace mlspp, bez GREASE, bez testów) ==="
+echo "=== mlspp (namespace mlspp, no GREASE, no tests) ==="
 cmake "${common[@]}" -S "$src/mlspp" -B "$root/build/dave/build-mlspp-ps5" \
     -DMLS_CXX_NAMESPACE=mlspp -DDISABLE_GREASE=ON -DTESTING=OFF
 cmake --build "$root/build/dave/build-mlspp-ps5" -j "$(nproc)"

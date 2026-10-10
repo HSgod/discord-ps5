@@ -36,5 +36,5 @@ cmake --install "$root/build/dave/build-libdave-ps5"
 
 echo "--- libdave.a ---"
 ls -l "$prefix/lib/libdave.a"
-echo "--- nagłówki ---"
+echo "--- headers ---"
 ls "$prefix/include/dave/"

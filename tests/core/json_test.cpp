@@ -112,8 +112,9 @@ MICRO_TEST(message_create_text_is_unescaped)
     MICRO_CHECK(document.ok());
 
     const Value message = document.root().member("d");
-    // \" — ł and the surrogate pair 🎵 are all decoded by the
-    // parser.
+    // The fixture is a message with sample text, and the parser has to decode
+    // all four escapes in it: the quoted name, the em dash, the two-byte letter
+    // and the surrogate pair at the end.
     MICRO_CHECK_EQ(message.member("content").text(),
                    std::string_view{"hej \"Accord\" \xe2\x80\x94 idziemy na g\xc5\x82os? \xf0\x9f\x8e\xb5"});
     MICRO_CHECK_EQ(message.member("author").member("username").text(), std::string_view{"milosz"});

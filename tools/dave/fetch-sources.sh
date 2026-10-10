@@ -21,13 +21,13 @@ if [ ! -d "$src/openssl-3.5.2" ]; then
         curl -fsSL -o openssl-3.5.2.tar.gz.sha256 \
             https://github.com/openssl/openssl/releases/download/openssl-3.5.2/openssl-3.5.2.tar.gz.sha256
     fi
-    echo "--- weryfikacja sha256 OpenSSL ---"
+    echo "--- verifying the OpenSSL sha256 ---"
     cat openssl-3.5.2.tar.gz.sha256
     sha256sum -c openssl-3.5.2.tar.gz.sha256
     tar xzf openssl-3.5.2.tar.gz
 fi
 
-# --- Repozytoria przypięte commitem -----------------------------------------
+# --- Repositories pinned by commit ------------------------------------------
 fetch_commit() {
     local name=$1 url=$2 sha=$3
     if [ ! -d "$src/$name/.git" ]; then
@@ -51,4 +51,4 @@ if [ ! -d "$src/nlohmann-json/.git" ]; then
 fi
 printf '%-12s %s (tag v3.11.3)\n' nlohmann "$(git -C "$src/nlohmann-json" rev-parse HEAD)"
 
-echo "--- gotowe: $(ls "$src" | tr '\n' ' ')"
+echo "--- done: $(ls "$src" | tr '\n' ' ')"
