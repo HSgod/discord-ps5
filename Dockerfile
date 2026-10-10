@@ -79,6 +79,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         dotnet-sdk-8.0 \
     && rm -rf /var/lib/apt/lists/*
 
+# Host tests of DAVE (T6.0-2): build/t60/build-host.sh builds libdave for the
+# container's own architecture and runs its suite. That suite links OpenSSL and
+# finds GTest through a CMake config package, which here is split into
+# libgtest-dev and libgmock-dev.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libgtest-dev \
+        libgmock-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Pinned ps5-payload-sdk release (see THIRD_PARTY.md / report for the hash).
 RUN wget -q "https://github.com/ps5-payload-dev/sdk/releases/download/${SDK_VERSION}/ps5-payload-sdk.zip" \
         -O /tmp/ps5-payload-sdk.zip \

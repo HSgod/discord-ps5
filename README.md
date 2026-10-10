@@ -24,11 +24,16 @@ Buduje się w kontenerze (Docker; na macOS przez colima). `scripts/dev.sh` montu
 
 ```
 make test             testy jednostkowe hosta (natywny toolchain, bez kontenera)
+make dave-deps        OpenSSL 3, mlspp i libdave pod toolchain payloadu (raz na klon)
 make payload          demon -> dist/accordd.elf        (payload SDK)
+make dave-host-test   natywne testy libdave + test fasady DAVE po stronie hosta
 make app              tytuł -> dist/PPSA99070          (boilerplate + kit UI)
 make ffpkg            tytuł spakowany -> dist/PPSA99070.ffpkg
 make host-snapshots   podgląd sześciu ekranów -> build/snapshots/*.png
 ```
+
+`make payload` linkuje demona z DAVE, więc najpierw trzeba raz zbudować zależności: `make dave-deps`
+(przypięte wersje, źródła lądują w `build/dave/`, który nie jest commitowany).
 
 Log demona na konsoli trafia do `/data/accord/daemon.log`.
 

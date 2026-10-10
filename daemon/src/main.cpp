@@ -6,7 +6,9 @@
  * port, and appends every line to a log file. It never talks to Discord, never
  * opens TLS and never contacts the title: the one question it answers is
  * whether a payload keeps running, and keeps its audio, while the console is
- * busy with something else.
+ * busy with something else. At start it also builds one MLS key package through
+ * the DAVE facade, which proves that libdave, mlspp and OpenSSL are linked into
+ * the payload and that their exceptions stop at the facade.
  */
 
 #include <array>
@@ -27,6 +29,7 @@
 #include "daemon/src/log.hpp"
 #include "daemon/src/server.hpp"
 #include "daemon/src/tone.hpp"
+#include "platform/ps5/dave/dave_facade.hpp"
 
 namespace accord::daemon
 {
@@ -117,6 +120,26 @@ int main(int argc, char **argv)
     logf(LogLevel::info, "daemon up: pid %d, http port %u, audio port '%s'",
          static_cast<int>(::getpid()), static_cast<unsigned>(options.port),
          name_of(audio_port).data());
+
+    // T6.0-2: the payload is linked with DAVE, so the daemon asks the library for
+    // a key package before it touches audio or the network. The facade hands back
+    // a status code rather than an exception, so a broken library cannot take the
+    // daemon down here.
+    const accord::ps5::dave::KeyPackageProbe dave =
+        accord::ps5::dave::probe_key_package(kDaveProbeGroupId, kDaveProbeUserId);
+    if (dave.status == accord::ps5::dave::Status::ok)
+        logf(LogLevel::info, "dave: key package %llu bytes, protocol version %u",
+             static_cast<unsigned long long>(dave.bytes),
+             static_cast<unsigned>(dave.protocol_version));
+    else
+        logf(LogLevel::error, "dave: no key package (status %s, protocol version %u)",
+             accord::ps5::dave::to_string(dave.status),
+             static_cast<unsigned>(dave.protocol_version));
+
+    // The library's own failure callback also reports what it recovers from, so
+    // this line shows up even when the key package above came out fine.
+    if (dave.library_reported_failure)
+        logf(LogLevel::warn, "dave: library reported '%s' while probing", dave.reported_reason);
 
     AudioOut audio;
     if (audio.open(audio_port))
