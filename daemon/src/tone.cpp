@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Test tone for the background daemon payload.
+ * Accord - Test tone for the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
@@ -57,4 +57,4 @@ bool Tone::playing() const noexcept
 {
     return tone_playing_at(frames_written_);
 }
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

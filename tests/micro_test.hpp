@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Minimal self-registering test harness.
+ * Accord - Minimal self-registering test harness.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * A micro-harness, not a framework. Keeping this in-tree

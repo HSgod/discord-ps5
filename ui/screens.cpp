@@ -1,11 +1,11 @@
 /*
- * Discord PS5 - The screen registry.
+ * Accord - The screen registry.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #include "ui/screens.hpp"
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 
 std::span<const Screen> screens() noexcept
@@ -21,4 +21,4 @@ std::span<const Screen> screens() noexcept
     return kScreens;
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

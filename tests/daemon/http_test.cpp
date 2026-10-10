@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Tests for the daemon's HTTP surface.
+ * Accord - Tests for the daemon's HTTP surface.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -9,7 +9,7 @@
 
 #include "daemon/src/http.hpp"
 
-using namespace discord_ps5::daemon;
+using namespace accord::daemon;
 
 MICRO_TEST(request_line_parses_the_method_and_the_path)
 {

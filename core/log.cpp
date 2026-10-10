@@ -1,11 +1,11 @@
 /*
- * Discord PS5 - Logging seam between pure logic and the platform layer.
+ * Accord - Logging seam between pure logic and the platform layer.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #include "core/log.hpp"
 
-namespace discord_ps5::core
+namespace accord::core
 {
 namespace
 {
@@ -41,4 +41,4 @@ void log(LogLevel level, std::string_view message) noexcept
     if (active_sink != nullptr)
         active_sink(level, message);
 }
-} // namespace discord_ps5::core
+} // namespace accord::core

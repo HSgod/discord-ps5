@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Stream player, static data.
+ * Accord - Stream player, static data.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The picture is a stand-in: the CPU decoder will blit real H.264/VP8 frames
@@ -11,7 +11,7 @@
 #include <array>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -76,4 +76,4 @@ void draw_stream(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.body("+ 1 280 more", 1560.0f, y + 36.0f, 24, muted);
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

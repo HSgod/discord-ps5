@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Logging seam between pure logic and the platform layer.
+ * Accord - Logging seam between pure logic and the platform layer.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Logic in core/ never writes to a console by itself; it hands lines to a sink
@@ -11,7 +11,7 @@
 
 #include <string_view>
 
-namespace discord_ps5::core
+namespace accord::core
 {
 enum class LogLevel
 {
@@ -30,4 +30,4 @@ LogSink log_sink() noexcept;
 
 // No-op when no sink is installed.
 void log(LogLevel level, std::string_view message) noexcept;
-} // namespace discord_ps5::core
+} // namespace accord::core

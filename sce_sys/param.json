@@ -9,7 +9,7 @@
   "attribute3": 0,
   "conceptId": "99070",
   "contentBadgeType": 1,
-  "contentId": "UP9000-PPSA99070_00-DISCORDPS5000000",
+  "contentId": "UP9000-PPSA99070_00-ACCORDPS50000000",
   "contentVersion": "01.000.000",
   "downloadDataSize": 256,
   "gameIntent": {
@@ -22,7 +22,7 @@
   "localizedParameters": {
     "defaultLanguage": "en-US",
     "en-US": {
-      "titleName": "Discord PS5"
+      "titleName": "Accord"
     }
   },
   "masterVersion": "01.00",

@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Tests for the daemon's test tone.
+ * Accord - Tests for the daemon's test tone.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -14,7 +14,7 @@
 
 namespace
 {
-using namespace discord_ps5::daemon;
+using namespace accord::daemon;
 
 // Both channels of one second, as the payload would have submitted them.
 constexpr std::size_t kSamplesPerSecond = kSampleRate * 2;

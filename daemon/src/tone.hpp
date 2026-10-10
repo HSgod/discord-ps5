@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Test tone for the background daemon payload.
+ * Accord - Test tone for the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * One second of a 440 Hz sine, then one second of silence, on repeat. Pure
@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <span>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 // Interleaved signed 16-bit stereo: one frame is two samples.
 inline constexpr std::uint32_t kSampleRate = 48000;
@@ -38,4 +38,4 @@ class Tone
     std::uint64_t frames_written_ = 0;
     double phase_ = 0.0;
 };
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

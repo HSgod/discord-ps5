@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${PS5_BUILDER_IMAGE:-discord-ps5-builder:local}"
+IMAGE="${PS5_BUILDER_IMAGE:-accord-builder:local}"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "dev.sh: docker not found in PATH" >&2

@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - SceAudioOut port for the test tone.
+ * Accord - SceAudioOut port for the test tone.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Only this file knows about libSceAudioOut, so the host build and the tests
@@ -21,7 +21,7 @@ extern "C" int sceAudioOutSetVolume(int handle, int flags, const int *volumes);
 extern "C" int sceAudioOutOutput(int handle, const void *samples);
 extern "C" int sceAudioOutClose(int handle);
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 // The payload submits one complete block and blocks until the queue has room,
 // so the block size is a property of this module.
@@ -62,4 +62,4 @@ class AudioOut
     int handle_ = -1;
     char error_[96] = "";
 };
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

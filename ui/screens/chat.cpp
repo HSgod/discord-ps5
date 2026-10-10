@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Chat view, static data.
+ * Accord - Chat view, static data.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -78,4 +78,4 @@ void draw_chat(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.label("X", 1832.0f, 995.0f, 22, context.theme.on_primary, Align::center);
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

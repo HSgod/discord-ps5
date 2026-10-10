@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Host substitutes for the platform layer.
+ * Accord - Host substitutes for the platform layer.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -7,7 +7,7 @@
 
 #include "core/log.hpp"
 
-namespace discord_ps5::host
+namespace accord::host
 {
 namespace
 {
@@ -52,4 +52,4 @@ std::string captured_text()
     }
     return joined;
 }
-} // namespace discord_ps5::host
+} // namespace accord::host

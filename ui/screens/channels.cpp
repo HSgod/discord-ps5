@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Channel list, static data.
+ * Accord - Channel list, static data.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -100,4 +100,4 @@ void draw_channels(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.label("X  OPEN   TRIANGLE  VIEW", 540.0f, 1016.0f, 20, muted);
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

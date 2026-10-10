@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Entry point of the background daemon payload.
+ * Accord - Entry point of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The daemon plays a test tone, answers GET /status and POST /quit on a local
@@ -28,11 +28,11 @@
 #include "daemon/src/server.hpp"
 #include "daemon/src/tone.hpp"
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
-using discord_ps5::core::LogLevel;
+using accord::core::LogLevel;
 
 struct Options
 {
@@ -96,12 +96,12 @@ void play_tone(AudioOut &audio, std::atomic<bool> &running,
     idle.store(true, std::memory_order_relaxed);
 }
 } // namespace
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon
 
 int main(int argc, char **argv)
 {
-    using namespace discord_ps5::daemon;
-    using discord_ps5::core::LogLevel;
+    using namespace accord::daemon;
+    using accord::core::LogLevel;
 
     const Options options = read_options(argc, argv);
 

@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Log file of the background daemon payload.
+ * Accord - Log file of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The daemon has no console to print to while it runs, so every line goes to
@@ -13,7 +13,7 @@
 
 #include "core/log.hpp"
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 // Creates the parent directory, then opens the file for appending. A false
 // return leaves the daemon running, but without a log file.
@@ -22,5 +22,5 @@ bool open_log(std::string_view path) noexcept;
 void close_log() noexcept;
 
 // printf-style, one timestamped line. Also mirrored to stdout or stderr.
-void logf(discord_ps5::core::LogLevel level, const char *format, ...) noexcept;
-} // namespace discord_ps5::daemon
+void logf(accord::core::LogLevel level, const char *format, ...) noexcept;
+} // namespace accord::daemon

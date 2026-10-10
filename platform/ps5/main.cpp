@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - PS5 entry point.
+ * Accord - PS5 entry point.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The boilerplate supplies no main() of its own: it compiles exactly what
@@ -14,20 +14,20 @@
 
 namespace
 {
-constexpr std::string_view ready_message = "Discord PS5 shell ready";
+constexpr std::string_view ready_message = "Accord shell ready";
 
 void draw_scene(ps5::demo::Canvas &canvas) noexcept
 {
-    discord_ps5::ui::draw_home_screen(canvas, discord_ps5::core::app_info());
+    accord::ui::draw_home_screen(canvas, accord::core::app_info());
 }
 } // namespace
 
 int main()
 {
-    discord_ps5::ps5::install_log_sink();
+    accord::ps5::install_log_sink();
 
-    const discord_ps5::core::AppInfo &info = discord_ps5::core::app_info();
-    discord_ps5::core::log(discord_ps5::core::LogLevel::info, info.name);
+    const accord::core::AppInfo &info = accord::core::app_info();
+    accord::core::log(accord::core::LogLevel::info, info.name);
 
     // Never returns: it owns the video output and stays up until the shell
     // asks the application to close.

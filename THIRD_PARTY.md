@@ -1,6 +1,6 @@
 # Third-party components
 
-Licencje komponentów użytych w projekcie „Discord PS5". Projekt jako całość jest
+Licencje komponentów użytych w projekcie „Accord". Projekt jako całość jest
 na licencji **GPL-3.0-or-later** (patrz `LICENSE`).
 
 ## Submoduły (przypięte commity)

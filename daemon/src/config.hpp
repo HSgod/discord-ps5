@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Defaults for the background daemon payload.
+ * Accord - Defaults for the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The default port is deliberately outside the range that is already busy on
@@ -10,8 +10,8 @@
 
 #include <cstdint>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 inline constexpr std::uint16_t kDefaultPort = 8280;
-inline constexpr const char *kLogPath = "/data/discord-ps5/daemon.log";
-} // namespace discord_ps5::daemon
+inline constexpr const char *kLogPath = "/data/accord/daemon.log";
+} // namespace accord::daemon

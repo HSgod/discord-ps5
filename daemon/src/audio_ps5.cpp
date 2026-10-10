@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - SceAudioOut port for the test tone.
+ * Accord - SceAudioOut port for the test tone.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
@@ -117,4 +117,4 @@ void AudioOut::remember(const char *call, int code) noexcept
 {
     std::snprintf(error_, sizeof(error_), "%s = 0x%08x", call, static_cast<unsigned>(code));
 }
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

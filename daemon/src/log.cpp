@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Log file of the background daemon payload.
+ * Accord - Log file of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -13,11 +13,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
-using discord_ps5::core::LogLevel;
+using accord::core::LogLevel;
 
 std::FILE *log_file = nullptr;
 
@@ -75,7 +75,7 @@ void logf(LogLevel level, const char *format, ...) noexcept
     va_end(arguments);
 
     const std::string when = timestamp();
-    const std::string_view name = discord_ps5::core::to_string(level);
+    const std::string_view name = accord::core::to_string(level);
 
     std::FILE *console = level == LogLevel::info ? stdout : stderr;
     std::fprintf(console, "[%s] %.*s: %s\n", when.c_str(), static_cast<int>(name.size()),
@@ -89,4 +89,4 @@ void logf(LogLevel level, const char *format, ...) noexcept
         std::fflush(log_file);
     }
 }
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

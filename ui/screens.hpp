@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - The six static screens and the context they draw in.
+ * Accord - The six static screens and the context they draw in.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Every screen is a plain function over a draw list. No screen owns a GL
@@ -23,7 +23,7 @@
 #include <span>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 // What a screen needs to paint one frame. The glass texture is the kit's
 // blurred copy of the frame behind; a screen that draws no glass may get 0.
@@ -83,4 +83,4 @@ inline hui::gfx::Color name_color(std::string_view name)
     return hui::gfx::Color::rgb(palette[hash % 6]);
 }
 } // namespace screens_detail
-} // namespace discord_ps5::ui
+} // namespace accord::ui

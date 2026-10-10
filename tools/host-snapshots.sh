@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discord PS5 - render every screen on the host (Mesa surfaceless EGL) to PNG.
+# Accord - render every screen on the host (Mesa surfaceless EGL) to PNG.
 #
 # Builds the platform-neutral part of the app - the vendored kit plus our
 # screens - for the PC and runs platform/host/snapshot_main.cpp. The console

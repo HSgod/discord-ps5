@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Login screen (QR code), static data.
+ * Accord - Login screen (QR code), static data.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The code is drawn from a fixed pattern so the layout can be reviewed; the
@@ -11,7 +11,7 @@
 #include <array>
 #include <cstdint>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -97,4 +97,4 @@ void draw_login(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.label("PAD OK", 1260.0f, 888.0f, 20, muted, Align::right);
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

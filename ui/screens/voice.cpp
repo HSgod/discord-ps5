@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Voice panel, static data.
+ * Accord - Voice panel, static data.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -104,4 +104,4 @@ void draw_voice(hui::gfx::DrawList &list, const ScreenContext &context)
     }
 }
 
-} // namespace discord_ps5::ui
+} // namespace accord::ui

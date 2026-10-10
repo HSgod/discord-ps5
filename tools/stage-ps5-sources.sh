@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discord PS5 - stage this project's PS5 sources into the boilerplate harness.
+# Accord - stage this project's PS5 sources into the boilerplate harness.
 #
 # The boilerplate builds from a single source directory, while our code lives in
 # core/, platform/ps5/ and ui/. Those three are copied into its gitignored
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-staging="$root/third_party/ps5-native-app-boilerplate/.local/discord-ps5"
+staging="$root/third_party/ps5-native-app-boilerplate/.local/accord"
 
 rm -rf -- "$staging"
 mkdir -p -- "$staging/src" "$staging/sce_sys"
@@ -34,4 +34,4 @@ rm -rf -- "$staging/src/ui/kit" "$staging/src/ui/screens" \
 
 cp -a -- "$root/sce_sys/param.json" "$staging/sce_sys/param.json"
 
-printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json -> boilerplate/.local/discord-ps5'
+printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json -> boilerplate/.local/accord'

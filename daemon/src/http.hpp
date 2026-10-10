@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - The little HTTP surface of the background daemon payload.
+ * Accord - The little HTTP surface of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Only two endpoints matter to the experiment: GET /status reports the audio
@@ -13,7 +13,7 @@
 #include <string>
 #include <string_view>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 enum class Method
 {
@@ -56,4 +56,4 @@ struct Response
 };
 
 std::string render_response(const Response &response);
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

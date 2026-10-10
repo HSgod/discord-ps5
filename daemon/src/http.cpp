@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - The little HTTP surface of the background daemon payload.
+ * Accord - The little HTTP surface of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
@@ -127,4 +127,4 @@ std::string render_response(const Response &response)
     out += response.body;
     return out;
 }
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

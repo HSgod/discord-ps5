@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Home screen.
+ * Accord - Home screen.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <string_view>
 
-namespace discord_ps5::ui
+namespace accord::ui
 {
 namespace
 {
@@ -40,6 +40,6 @@ void draw_home_screen(::ps5::demo::Canvas &canvas, const core::AppInfo &info) no
 
     canvas.text(120, 110, uppercase(info.name).data(), 12, Color::white);
     canvas.text(120, 265, uppercase(info.version).data(), 5, Color::cyan);
-    canvas.text(120, 960, "DISCORD PS5 SIMPLE UI", 4, Color::yellow);
+    canvas.text(120, 960, "ACCORD SIMPLE UI", 4, Color::yellow);
 }
-} // namespace discord_ps5::ui
+} // namespace accord::ui

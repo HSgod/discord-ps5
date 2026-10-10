@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - HTTP server of the background daemon payload.
+ * Accord - HTTP server of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 namespace
 {
@@ -182,4 +182,4 @@ void Server::remember(const char *call, int code) noexcept
     std::snprintf(error_, sizeof(error_), "%s: %s", call, std::strerror(errno));
     (void)code;
 }
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

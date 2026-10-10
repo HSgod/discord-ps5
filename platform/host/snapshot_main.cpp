@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Host snapshot runner: renders every screen off-screen to PNG.
+ * Accord - Host snapshot runner: renders every screen off-screen to PNG.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Lives in platform/host/ because it is a host substitute: it must never reach
@@ -172,13 +172,13 @@ int main(int argc, char **argv)
 
     // Two passes: the first fills the renderer's glass texture, so a theme whose
     // surfaces are frosted has something to blur on the pass that is written.
-    const std::span<const discord_ps5::ui::Screen> all = discord_ps5::ui::screens();
+    const std::span<const accord::ui::Screen> all = accord::ui::screens();
     for (int pass = 0; pass < 2; ++pass)
     {
-        for (const discord_ps5::ui::Screen &screen : all)
+        for (const accord::ui::Screen &screen : all)
         {
             hui::gfx::DrawList list;
-            const discord_ps5::ui::ScreenContext context{fonts, *theme,
+            const accord::ui::ScreenContext context{fonts, *theme,
                                                          renderer.glass_texture(), 4.0f};
             screen.draw(list, context);
 

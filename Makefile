@@ -1,4 +1,4 @@
-# Discord PS5 - build entry point.
+# Accord - build entry point.
 #
 # Layout:
 #   core/           pure logic, no PS5 SDK -- compiles with the host toolchain
@@ -13,7 +13,7 @@
 #   make            build the PS5 application (needs the builder container)
 #   make test       build and run the host tests (native toolchain, no container)
 #   make host-snapshots  render every screen to build/snapshots/*.png (container, Mesa)
-#   make payload    build the background daemon to dist/discord-ps5d.elf (container)
+#   make payload    build the background daemon to dist/accordd.elf (container)
 #   make ffpkg      build the PS5 application and its UFS2 image, copied to dist/
 #   make stage      only stage the sources into the boilerplate harness
 #   make clean      drop host build output
@@ -36,11 +36,11 @@ THEME ?= acrylic
 # submodules that accepts outside sources (APP_SOURCE_DIR/APP_PARAM).
 BOILERPLATE := third_party/ps5-native-app-boilerplate
 TITLE_ID    := PPSA99070
-STAGING     := $(BOILERPLATE)/.local/discord-ps5
+STAGING     := $(BOILERPLATE)/.local/accord
 
-APP_VARS := APP_SOURCE_DIR=.local/discord-ps5/src \
-            APP_PARAM=.local/discord-ps5/sce_sys/param.json \
-            APP_INCLUDE_PATHS=.local/discord-ps5/src
+APP_VARS := APP_SOURCE_DIR=.local/accord/src \
+            APP_PARAM=.local/accord/sce_sys/param.json \
+            APP_INCLUDE_PATHS=.local/accord/src
 
 .PHONY: all app stage ffpkg test host-snapshots payload clean distclean
 

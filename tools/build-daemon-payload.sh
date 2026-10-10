@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the background daemon payload into dist/discord-ps5d.elf.
+# Builds the background daemon payload into dist/accordd.elf.
 #
 # Run inside the builder container (see the payload target in the Makefile).
 # The payload SDK's C++ driver brings its own sysroot, crt, libc++ and the
@@ -15,7 +15,7 @@ cd "$root"
 sdk="${PS5_PAYLOAD_SDK:?PS5_PAYLOAD_SDK is unset: run this inside the builder container}"
 cc="$sdk/bin/prospero-clang++"
 
-out="dist/discord-ps5d.elf"
+out="dist/accordd.elf"
 mkdir -p dist
 
 sources=()

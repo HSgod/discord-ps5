@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - HTTP server of the background daemon payload.
+ * Accord - HTTP server of the background daemon payload.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * One client at a time and never blocking: the daemon's main loop calls poll()
@@ -15,7 +15,7 @@
 
 #include "daemon/src/http.hpp"
 
-namespace discord_ps5::daemon
+namespace accord::daemon
 {
 using RequestHandler = std::function<Response(const RequestLine &)>;
 
@@ -45,4 +45,4 @@ class Server
     int fd_ = -1;
     std::uint16_t port_ = 0;
 };
-} // namespace discord_ps5::daemon
+} // namespace accord::daemon

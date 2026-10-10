@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Entry point of the host test binary.
+ * Accord - Entry point of the host test binary.
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 

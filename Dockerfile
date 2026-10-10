@@ -1,4 +1,4 @@
-# T1.1 — builder container for the PS5 payload SDK (project: Discord PS5)
+# T1.1 — builder container for the PS5 payload SDK (project: Accord)
 #
 # Base image follows the SDK's own CI (.github/workflows/ubuntu-latest.yml in
 # ps5-payload-dev/sdk), which builds on ubuntu-latest with clang-18 + lld-18.

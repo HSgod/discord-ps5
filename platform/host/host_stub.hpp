@@ -1,5 +1,5 @@
 /*
- * Discord PS5 - Host substitutes for the platform layer.
+ * Accord - Host substitutes for the platform layer.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Built into the host test binary only; never part of the PS5 build. The
@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace discord_ps5::host
+namespace accord::host
 {
 // Lines handed to the log seam since the last clear, without the level prefix.
 std::vector<std::string> &captured_log() noexcept;
@@ -25,4 +25,4 @@ void install_capturing_log_sink() noexcept;
 
 // captured_log() joined with '\n', for readable assertions.
 std::string captured_text();
-} // namespace discord_ps5::host
+} // namespace accord::host

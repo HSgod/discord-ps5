@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discord PS5 - vendor the ps5-homebrew-ui drawing kit into ui/kit/.
+# Accord - vendor the ps5-homebrew-ui drawing kit into ui/kit/.
 #
 # Adopts the kit per third_party/ps5-homebrew-ui/docs/ADOPTING.md ("Take the
 # kit"): the gfx/, ui/, ui/components/, core/ and audio/ directories, plus the
