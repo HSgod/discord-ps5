@@ -1,43 +1,64 @@
 # Accord
 
-Natywna aplikacja homebrew na PlayStation 5 (OnionHEN): **nieoficjalny klient zgodny z Discordem**.
-Nazwa aplikacji to **Accord**; słowo „Discord" występuje w tym repozytorium wyłącznie jako nazwa usługi
-i protokołu, z którym się łączymy.
+Accord brings Discord to your PlayStation 5. Your servers, your channels, your messages, voice
+chat and live streams — on the TV, driven with the DualSense in your hand, with no PC sitting in
+the middle.
 
-To nie jest oficjalna aplikacja Discorda i nie ma z Discord Inc. żadnego związku ani zgody tej firmy.
-Klient loguje się zwykłym kontem użytkownika, co może naruszać regulamin Discorda — decyzja o użyciu
-należy do osoby, która go uruchamia.
+Accord is an **unofficial** client. It is not made, endorsed or supported by Discord Inc., and it
+is not a system-level integration built into the console. You sign in with your own Discord
+account; doing that from an unofficial app can break Discord's terms of service and put the
+account at risk. Whether to use it is your call.
 
-## Jak to jest zbudowane
+## What Accord does
 
-Jeden rdzeń, dwa fronty (decyzja z 2026-10-10):
+**Sign in from the couch.** Accord puts a code on your TV. You scan it with the Discord app on
+your phone and approve the login there — your password is never typed on the console and never
+stored on it.
 
-| Część | Co robi | Czego nie robi |
-|---|---|---|
-| `core/` | protokół, JSON, stan czatu, bufory audio — bez zależności od PS5 | nie zna frontu ani procesu |
-| `daemon/` (payload `.elf`) | **jedyny** właściciel sesji: token, Gateway, REST, głos, audio; API HTTP dla frontów | nie rysuje OpenGL |
-| tytuł `PPSA99070` (`.ffpkg`) | front poza grą: pokazuje stan demona i wysyła mu polecenia przez `127.0.0.1` | nie loguje się, nie trzyma tokenu, nie otwiera portów audio |
+**Your servers, one at a time.** The rail on the left lists the servers you have joined; open one
+and its channels appear with an unread marker on the ones you have not read yet.
 
-## Budowanie
+**Read and write.** A channel opens as a normal chat view, and a message is written with the
+on-screen keyboard, so you do not need a USB keyboard plugged into the console.
 
-Buduje się w kontenerze (Docker; na macOS przez colima). `scripts/dev.sh` montuje repozytorium w `/work`.
+**Voice channels.** Join the channel you want, see at a glance who is in it and who is talking,
+mute your microphone, and leave when you are done.
 
-```
-make test             testy jednostkowe hosta (natywny toolchain, bez kontenera)
-make dave-deps        OpenSSL 3, mlspp i libdave pod toolchain payloadu (raz na klon)
-make payload          demon -> dist/accordd.elf        (payload SDK)
-make dave-host-test   natywne testy libdave + test fasady DAVE po stronie hosta
-make app              tytuł -> dist/PPSA99070          (boilerplate + kit UI)
-make ffpkg            tytuł spakowany -> dist/PPSA99070.ffpkg
-make host-snapshots   podgląd sześciu ekranów -> build/snapshots/*.png
-```
+**Live streams.** When somebody goes live, Accord shows you their stream full screen and lets you
+follow the viewers as they come and go.
 
-`make payload` linkuje demona z DAVE, więc najpierw trzeba raz zbudować zależności: `make dave-deps`
-(przypięte wersje, źródła lądują w `build/dave/`, który nie jest commitowany).
+**Played with the pad, not a mouse.** Moving around, going back, and writing all live on the
+DualSense — including the on-screen keyboard, which opens wherever text can be typed.
 
-Log demona na konsoli trafia do `/data/accord/daemon.log`.
+**Made to be stepped away from.** Accord runs as a homebrew title, so you can leave it and come
+back. The connection is kept by a small background service on the console, which is why the app
+can shut down and reopen without logging you in again.
 
-## Licencja
+## What you need
 
-GPL-3.0-or-later — patrz `LICENSE`. Wynika to z użycia kitu `ps5-homebrew-ui` (GPL-3.0-or-later).
-Licencje wszystkich komponentów zewnętrznych: `THIRD_PARTY.md`.
+- A PlayStation 5 on firmware 13.60 with homebrew enabled. Earlier firmware is not supported.
+- A Discord account. Accord logs in as you, a normal user — not as a bot.
+- Nobody watching over your shoulder while you type a message, ideally.
+
+Accord is delivered as a `.ffpkg` package — the format homebrew titles on the console use.
+
+## Where Accord is today
+
+Accord is early work, and this README describes the app it is becoming rather than a finished
+product. The interface exists and draws: all six screens — login, servers, channels, chat, voice
+and stream — render, and the interface kit behind them already carries the controller handling
+and the on-screen keyboard. The half that talks to Discord is still being built, and the console
+title does not yet run this interface, so a login today does not reach the service. Development
+happens in the open, and the commit history is the honest record of what runs.
+
+## Licence
+
+GPL-3.0-or-later — see `LICENSE`. The interface kit Accord draws with is
+[ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui), also GPL-3.0-or-later,
+which is why the whole app carries that licence. Licences of every bundled component are listed in
+`THIRD_PARTY.md`.
+
+## Building it yourself
+
+Developer documentation — how the app is put together, how to build it, and what each `make`
+target does — lives in `docs/BUILD.md`.
