@@ -24,15 +24,15 @@ constexpr std::array<Row, 9> kRows{{
     {"", "TEXT CHANNELS", false, false},
     {"#", "general", false, false},
     {"#", "announcements", false, true},
-    {"#", "homebrew", false, true},
+    {"#", "screenshots", false, true},
     {"#", "off-topic", false, false},
     {"", "VOICE CHANNELS", false, false},
-    {"*", "General", true, false},
-    {"*", "PS5 Payload Dev", true, false},
-    {"*", "Go Live", true, false},
+    {"*", "Lounge", true, false},
+    {"*", "Studio", true, false},
+    {"*", "Backstage", true, false},
 }};
 
-constexpr std::size_t kSelected = 2;
+constexpr std::size_t kSelected = 1;
 } // namespace
 
 void draw_channels(hui::gfx::DrawList &list, const ScreenContext &context)
@@ -49,9 +49,9 @@ void draw_channels(hui::gfx::DrawList &list, const ScreenContext &context)
     const Rect sidebar{0, 0, 460, 1080};
     list.rounded_rect(sidebar, 0.0f, context.theme.surface.with_alpha(0.72f));
 
-    list.rounded_rect({24, 40, 56, 56}, 18.0f, screens_detail::name_color("Homebrew PS5"));
-    paint.label("H", 52.0f, 80.0f, 26, Color::rgb(0xffffff), Align::center);
-    paint.body("Homebrew PS5", 100.0f, 78.0f, 28, text);
+    list.rounded_rect({24, 40, 56, 56}, 18.0f, screens_detail::name_color("Ashgrove Guild"));
+    paint.label("A", 52.0f, 80.0f, 26, Color::rgb(0xffffff), Align::center);
+    paint.body("Ashgrove Guild", 100.0f, 78.0f, 28, text);
     paint.label("2418 ONLINE", 100.0f, 108.0f, 18, muted);
 
     float y = 168.0f;
@@ -86,9 +86,9 @@ void draw_channels(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.label("TEXT CHANNEL", 540.0f, 174.0f, 18, muted);
 
     const std::array<std::string_view, 3> preview{{
-        "milosz: build went green, the ffpkg mounts on 13.60",
-        "kata: nice. which runtime did it pull?",
-        "milosz: the crate one, 4b3fbb7",
+        "wren: patch notes are up, raid night moves to tuesday",
+        "juniper: finally. same time?",
+        "wren: 20:00 sharp",
     }};
     float py = 260.0f;
     for (const std::string_view line : preview)

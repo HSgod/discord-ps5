@@ -23,10 +23,10 @@ struct Participant
 };
 
 constexpr std::array<Participant, 4> kParticipants{{
-    {"milosz", true, false},
-    {"kata", false, false},
-    {"orbit", false, true},
-    {"dev-kit", false, false},
+    {"wren", true, false},
+    {"juniper", false, false},
+    {"kestrel", false, true},
+    {"tamsin", false, false},
 }};
 } // namespace
 
@@ -46,8 +46,8 @@ void draw_voice(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.panel(card);
 
     paint.label("VOICE CONNECTED", 144.0f, 190.0f, 20, context.theme.success);
-    paint.heading("General", 144.0f, 264.0f, 52, text);
-    paint.body("Homebrew PS5  /  Voice Channels", 144.0f, 306.0f, 24, muted);
+    paint.heading("Lounge", 144.0f, 264.0f, 52, text);
+    paint.body("Ashgrove Guild  /  Voice Channels", 144.0f, 306.0f, 24, muted);
 
     // A live level meter, the one piece of motion on this screen.
     const Rect meter{144, 360, 664, 18};

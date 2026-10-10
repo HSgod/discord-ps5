@@ -8,6 +8,8 @@
 
 #include "ui/screens.hpp"
 
+#include "core/app_info.hpp"
+
 #include <array>
 #include <cstdint>
 
@@ -57,6 +59,10 @@ void draw_login(hui::gfx::DrawList &list, const ScreenContext &context)
     hui::ui::Painter paint(list, context.fonts, context.theme, context.glass_texture);
     const Color text = context.theme.text;
     const Color muted = context.theme.text_muted;
+
+    // The product name comes from core/app_info.hpp, so the title, the daemon
+    // and this screen cannot drift apart.
+    paint.heading(accord::core::app_info().name, 960.0f, 116.0f, 40, text, Align::center);
 
     // The card the code sits in.
     const Rect card{610, 150, 700, 780};

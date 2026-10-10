@@ -71,7 +71,9 @@ inline void avatar(hui::gfx::DrawList &list, const hui::ui::FontRef &font, float
     }
 }
 
-// A stable colour per name, so "Milosz" is the same hue on every screen.
+// A stable colour per name, so the same handle is the same hue on every screen.
+// These six are Accord's own: muted, mid-luminance hues, chosen to carry a white
+// initial and to stay clear of any other client's brand colours.
 inline hui::gfx::Color name_color(std::string_view name)
 {
     std::uint32_t hash = 2166136261u;
@@ -79,7 +81,7 @@ inline hui::gfx::Color name_color(std::string_view name)
     {
         hash = (hash ^ static_cast<std::uint8_t>(character)) * 16777619u;
     }
-    const std::uint32_t palette[] = {0x5865f2, 0x3ba55d, 0xeb459e, 0xfaa61a, 0x00a8fc, 0xed4245};
+    const std::uint32_t palette[] = {0x2f8f7a, 0x4a7fb5, 0x7b5ea7, 0xb0567a, 0xbf7b3f, 0x6f8f3f};
     return hui::gfx::Color::rgb(palette[hash % 6]);
 }
 } // namespace screens_detail

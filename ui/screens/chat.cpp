@@ -24,12 +24,12 @@ struct Message
 };
 
 constexpr std::array<Message, 6> kMessages{{
-    {"milosz", "19:02", "build went green - make, make test and make ffpkg all exit 0", false},
-    {"kata", "19:04", "nice. which runtime did it pull?", false},
-    {"milosz", "19:04", "the crate one, pinned at 4b3fbb7", false},
-    {"orbit", "19:07", "on 13.60 only the .ffpkg image starts, the folder build dies in processSpawn", true},
-    {"kata", "19:09", "so the console build is finally closed?", false},
-    {"milosz", "19:10", "yes - the demo renders and the pad drives it", false},
+    {"wren", "19:02", "patch notes are up in #announcements", false},
+    {"juniper", "19:04", "nice, the raid night finally moved", false},
+    {"wren", "19:04", "tuesdays from now on, 20:00", false},
+    {"kestrel", "19:07", "anyone up for a run after the stream?", true},
+    {"juniper", "19:09", "I'm in", false},
+    {"wren", "19:10", "same here, give me ten minutes", false},
 }};
 } // namespace
 
@@ -48,7 +48,7 @@ void draw_chat(hui::gfx::DrawList &list, const ScreenContext &context)
     list.rounded_rect({0, 0, 1920, 96}, 0.0f, context.theme.surface.with_alpha(0.72f));
     paint.label("#", 48.0f, 62.0f, 30, muted);
     paint.body("general", 84.0f, 62.0f, 30, text);
-    paint.body("Homebrew PS5", 360.0f, 62.0f, 24, muted);
+    paint.body("Ashgrove Guild", 360.0f, 62.0f, 24, muted);
     paint.label("2418 ONLINE", 1872.0f, 60.0f, 20, muted, Align::right);
 
     // Messages.

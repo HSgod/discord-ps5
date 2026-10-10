@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Accord - render every screen on the host (Mesa surfaceless EGL) to PNG.
 #
-# Builds the platform-neutral part of the app - the vendored kit plus our
-# screens - for the PC and runs platform/host/snapshot_main.cpp. The console
+# Builds the platform-neutral part of the app - the vendored kit, our screens
+# and core/ (the login screen shows the product name from core/app_info.hpp) -
+# for the PC and runs platform/host/snapshot_main.cpp. The console
 # platform layer (ui/kit/platform/) is left out; the kit's host shim stands in
 # for it. Runs inside the builder container, which carries Mesa:
 #
@@ -30,8 +31,8 @@ sources=(
 )
 while IFS= read -r -d '' file; do
     sources+=("$file")
-done < <(find "$root/ui/screens" "$root/ui/kit" -type f \( -name '*.cpp' -o -name '*.c' \) \
-    ! -path "$root/ui/kit/platform/*" -print0 | sort -z)
+done < <(find "$root/core" "$root/ui/screens" "$root/ui/kit" -type f \( -name '*.cpp' -o -name '*.c' \) \
+    ! -path "$root/ui/kit/platform/*" ! -path "$root/core/log.cpp" -print0 | sort -z)
 
 objects=()
 for source in "${sources[@]}"; do

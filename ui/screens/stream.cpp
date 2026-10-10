@@ -48,7 +48,7 @@ void draw_stream(hui::gfx::DrawList &list, const ScreenContext &context)
     paint.body("1 284 watching", 348.0f, 160.0f, 24, Color::rgb(0xffffff));
 
     // Who is streaming.
-    paint.body("orbit is streaming Homebrew PS5", 136.0f, 908.0f, 28, text);
+    paint.body("kestrel is streaming Foxglove Radio", 136.0f, 908.0f, 28, text);
     paint.label("GO LIVE  /  SCREEN SHARE", 136.0f, 940.0f, 18, muted);
 
     // Control bar.
@@ -65,7 +65,7 @@ void draw_stream(hui::gfx::DrawList &list, const ScreenContext &context)
 
     // Viewers, a short list on the right.
     paint.label("VIEWERS", 1560.0f, 152.0f, 20, muted);
-    const std::array<std::string_view, 4> viewers{{"kata", "milosz", "dev-kit", "henny"}};
+    const std::array<std::string_view, 4> viewers{{"juniper", "wren", "tamsin", "halcyon"}};
     float y = 200.0f;
     for (const std::string_view viewer : viewers)
     {

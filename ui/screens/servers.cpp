@@ -22,13 +22,14 @@ struct Server
     int members;
 };
 
+// Invented communities: the mock-up must not carry anybody's real name or brand.
 constexpr std::array<Server, 6> kServers{{
-    {"H", "Homebrew PS5", 2418},
-    {"O", "Orbit Store", 903},
-    {"H", "HEN Central", 15604},
-    {"F", "Final Fantasy XIV", 88231},
-    {"D", "Discord Developers", 202415},
-    {"P", "PacBrew", 611},
+    {"A", "Ashgrove Guild", 2418},
+    {"B", "Blue Lattice", 903},
+    {"C", "Comet Watch", 15604},
+    {"F", "Foxglove Radio", 88231},
+    {"N", "Northlight", 202415},
+    {"P", "Paper Kite Club", 611},
 }};
 
 constexpr std::size_t kSelected = 0;
@@ -58,7 +59,7 @@ void draw_servers(hui::gfx::DrawList &list, const ScreenContext &context)
         const float cy = 176.0f + static_cast<float>(index) * 96.0f;
         const bool chosen = index == kSelected;
         // The selected server gets the pill marker on the left and a brightened
-        // disc, exactly the cue Discord's own client uses.
+        // disc: the usual cue for the row you are on.
         if (chosen)
             list.rounded_rect({4, cy - 26, 10, 52}, 5.0f, context.theme.text);
         const Color base = name_color(kServers[index].name);
