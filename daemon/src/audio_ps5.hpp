@@ -11,7 +11,10 @@
 
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
+
+#include "daemon/src/audio_error.hpp"
 
 // libSceAudioOut, as the SDK's stub library exports it.
 extern "C" int sceAudioOutInit();
@@ -54,12 +57,14 @@ class AudioOut
     void close() noexcept;
 
     bool is_open() const noexcept;
-    std::string_view last_error() const noexcept;
+
+    // Composed from the failure record on every call, because the audio thread
+    // is the one that writes it and the HTTP thread is the one that reads it.
+    // Empty while nothing has failed.
+    std::string last_error() const;
 
   private:
-    void remember(const char *call, int code) noexcept;
-
     int handle_ = -1;
-    char error_[96] = "";
+    AudioError error_;
 };
 } // namespace accord::daemon

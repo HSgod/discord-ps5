@@ -5,8 +5,6 @@
 
 #include "daemon/src/audio_ps5.hpp"
 
-#include <cstdio>
-
 namespace accord::daemon
 {
 namespace
@@ -52,7 +50,7 @@ bool AudioOut::open(AudioPort port) noexcept
     int code = sceAudioOutInit();
     if (code != 0)
     {
-        remember("sceAudioOutInit", code);
+        error_.remember(AudioCall::init, code);
         return false;
     }
 
@@ -61,7 +59,7 @@ bool AudioOut::open(AudioPort port) noexcept
                               kFormatS16Stereo);
     if (handle_ < 0)
     {
-        remember("sceAudioOutOpen", handle_);
+        error_.remember(AudioCall::open, handle_);
         handle_ = -1;
         return false;
     }
@@ -71,7 +69,7 @@ bool AudioOut::open(AudioPort port) noexcept
     if (code != 0)
     {
         // Not fatal: the port stays open at whatever volume it came up with.
-        remember("sceAudioOutSetVolume", code);
+        error_.remember(AudioCall::set_volume, code);
     }
     return true;
 }
@@ -83,7 +81,7 @@ void AudioOut::submit(std::span<const std::int16_t> frames) noexcept
 
     const int code = sceAudioOutOutput(handle_, frames.data());
     if (code != 0)
-        remember("sceAudioOutOutput", code);
+        error_.remember(AudioCall::output, code);
 }
 
 void AudioOut::drain() noexcept
@@ -108,13 +106,8 @@ bool AudioOut::is_open() const noexcept
     return handle_ >= 0;
 }
 
-std::string_view AudioOut::last_error() const noexcept
+std::string AudioOut::last_error() const
 {
-    return error_;
-}
-
-void AudioOut::remember(const char *call, int code) noexcept
-{
-    std::snprintf(error_, sizeof(error_), "%s = 0x%08x", call, static_cast<unsigned>(code));
+    return error_.text();
 }
 } // namespace accord::daemon

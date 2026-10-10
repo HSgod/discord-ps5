@@ -159,7 +159,7 @@ int main(int argc, char **argv)
         logf(LogLevel::info, "audio port '%s' is open",
              std::string{name_of(audio_port)}.c_str());
     else
-        logf(LogLevel::error, "audio port failed: %s", std::string{audio.last_error()}.c_str());
+        logf(LogLevel::error, "audio port failed: %s", audio.last_error().c_str());
 
     Server server;
     if (server.listen(options.port))
@@ -185,7 +185,10 @@ int main(int argc, char **argv)
         if (request.method == Method::get && request.path == "/status")
         {
             const std::uint64_t written = frames.load(std::memory_order_relaxed);
-            const std::string_view audio_error = audio.last_error();
+            // Composed here rather than stored: the audio thread owns the
+            // record, this thread only reads it. The view below points into
+            // this string, which outlives the render call.
+            const std::string audio_error = audio.last_error();
 
             Status status;
             status.uptime_seconds = static_cast<std::uint64_t>(std::time(nullptr) - started);

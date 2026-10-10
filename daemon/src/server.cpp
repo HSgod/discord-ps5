@@ -5,6 +5,7 @@
 
 #include "daemon/src/server.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <netinet/in.h>
@@ -19,25 +20,43 @@ namespace
 {
 constexpr std::size_t kMaxRequestBytes = 4096;
 constexpr std::size_t kResponseChunk = 512;
-constexpr int kIoTimeoutMs = 500;
+constexpr int kSendTimeoutMs = 500;
 constexpr int kBacklog = 4;
 
+// Monotonic, so a clock step cannot stretch a budget. Only the socket code
+// needs it; the budget itself takes the time as an argument.
+std::int64_t now_us() noexcept
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
 // A client that stops talking mid-request must not hold the daemon forever.
-void set_io_timeout(int socket, int option) noexcept
+void set_timeout(int socket, int option, int milliseconds) noexcept
 {
     timeval timeout{};
-    timeout.tv_sec = kIoTimeoutMs / 1000;
-    timeout.tv_usec = (kIoTimeoutMs % 1000) * 1000;
+    timeout.tv_sec = milliseconds / 1000;
+    timeout.tv_usec = (milliseconds % 1000) * 1000;
     ::setsockopt(socket, SOL_SOCKET, option, &timeout, sizeof(timeout));
 }
 
+// Reads the request head under a total budget: each recv waits no longer than
+// what is left of it, so the loop ends after RequestBudget::kBudgetUs at most,
+// however slowly the client types.
 std::string read_head(int socket) noexcept
 {
     std::string head;
     char buffer[kResponseChunk];
 
+    const RequestBudget budget{now_us()};
     while (head.size() < kMaxRequestBytes)
     {
+        const int step_ms = budget.next_timeout_ms(now_us());
+        if (step_ms == 0)
+            break;
+
+        set_timeout(socket, SO_RCVTIMEO, step_ms);
         const ssize_t got = ::recv(socket, buffer, sizeof(buffer), 0);
         if (got <= 0)
             break;
@@ -70,6 +89,29 @@ RequestLine first_line(const std::string &head) noexcept
     return parse_request_line(std::string_view{head.data(), length});
 }
 } // namespace
+
+std::int64_t RequestBudget::remaining_us(std::int64_t now_us) const noexcept
+{
+    const std::int64_t left = kBudgetUs - (now_us - started_us_);
+    return left > 0 ? left : 0;
+}
+
+bool RequestBudget::expired(std::int64_t now_us) const noexcept
+{
+    return remaining_us(now_us) == 0;
+}
+
+int RequestBudget::next_timeout_ms(std::int64_t now_us) const noexcept
+{
+    const std::int64_t left = remaining_us(now_us);
+    if (left == 0)
+        return 0;
+
+    // Rounded up, so the last fraction of a millisecond still gets one try
+    // rather than ending the read a moment early.
+    const std::int64_t milliseconds = (left + 999) / 1000;
+    return static_cast<int>(milliseconds < kMaxStepMs ? milliseconds : kMaxStepMs);
+}
 
 Server::~Server()
 {
@@ -129,8 +171,7 @@ void Server::poll(const RequestHandler &handler) noexcept
     if (client < 0)
         return;
 
-    set_io_timeout(client, SO_RCVTIMEO);
-    set_io_timeout(client, SO_SNDTIMEO);
+    set_timeout(client, SO_SNDTIMEO, kSendTimeoutMs);
 
     const std::string head = read_head(client);
 
