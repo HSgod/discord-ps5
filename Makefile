@@ -12,6 +12,7 @@
 # Targets:
 #   make            build the PS5 application (needs the builder container)
 #   make test       build and run the host tests (native toolchain, no container)
+#   make ws-soak    ten minutes of WebSocket frames over loopback TCP (log in build/)
 #   make host-snapshots  render every screen to build/snapshots/*.png (container, Mesa)
 #   make payload    build the background daemon to dist/accordd.elf (container)
 #   make dave-deps  cross-build OpenSSL 3, mlspp and libdave for the payload (container)
@@ -32,10 +33,17 @@ CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 # Of ui/ only the navigation is host-clean: it is the shell's input logic, with
 # no kit and no SDK in it, which is why it is listed by hand. The screens and
 # the drawing code need the kit and are exercised by `make host-snapshots`.
-HOST_SOURCES := $(shell find core platform/host daemon tests -name '*.cpp' \
+HOST_SOURCES := $(shell find core platform/host platform/net daemon tests -name '*.cpp' \
                    ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort) \
                 ui/nav.cpp
 HOST_BINARY  := build/host-tests
+
+# The ten-minute soak of the WebSocket client is not a host test: it takes ten
+# minutes and prints a log rather than an exit status, so it links only what it
+# needs and `make test` stays as fast as it was.
+SOAK_SOURCES := $(shell find core platform/net tests/support -name '*.cpp' | sort) \
+                tests/soak/main.cpp
+SOAK_BINARY  := build/ws-soak
 
 # core/json.cpp parses with yyjson, fetched and pinned by tools/fetch-yyjson.sh
 # into third_party/yyjson (not committed). The pinned parser is a prerequisite
@@ -84,7 +92,7 @@ APP_VARS := APP_SOURCE_DIR=.local/accord/src \
             'APP_WRAP_SYMBOLS=sceSystemServiceHideSplashScreen malloc calloc realloc free posix_memalign malloc_usable_size' \
             APP_ASSETS=.local/accord/assets
 
-.PHONY: all app stage opengl ffpkg test host-snapshots payload dave-deps dave-host-test clean distclean
+.PHONY: all app stage opengl ffpkg test ws-soak host-snapshots payload dave-deps dave-host-test clean distclean
 
 all: app
 
@@ -115,6 +123,16 @@ $(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ)
 test: $(HOST_BINARY)
 	@printf '%s\n' '==> [test] host unit tests'
 	@./$(HOST_BINARY)
+
+$(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -I. $(SOAK_SOURCES) $(JSON_OBJ) -o $@
+
+# Ten minutes of frames over loopback TCP, on one connection. The log of a run
+# is what T3.3 asks for, so it is kept: build/ws-soak.log.
+ws-soak: $(SOAK_BINARY)
+	@printf '%s\n' '==> [ws-soak] ten minutes of frames on one connection (log: build/ws-soak.log)'
+	@./$(SOAK_BINARY) 10 | tee build/ws-soak.log
 
 # Needs the builder container: Mesa's surfaceless EGL is installed there.
 host-snapshots:
