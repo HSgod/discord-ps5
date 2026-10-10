@@ -2,7 +2,7 @@
  * Discord PS5 - Minimal self-registering test harness.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * T2.1 asks for "at least one test", not for a framework. Keeping this in-tree
+ * A micro-harness, not a framework. Keeping this in-tree
  * avoids a fetched dependency for a skeleton that only exercises pure logic:
  *
  *   MICRO_TEST(adding_works)

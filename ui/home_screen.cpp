@@ -40,6 +40,6 @@ void draw_home_screen(::ps5::demo::Canvas &canvas, const core::AppInfo &info) no
 
     canvas.text(120, 110, uppercase(info.name).data(), 12, Color::white);
     canvas.text(120, 265, uppercase(info.version).data(), 5, Color::cyan);
-    canvas.text(120, 960, "T2.1 SKELETON - SCREENS ARRIVE IN T2.2", 4, Color::yellow);
+    canvas.text(120, 960, "DISCORD PS5 SIMPLE UI", 4, Color::yellow);
 }
 } // namespace discord_ps5::ui

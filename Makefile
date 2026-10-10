@@ -1,16 +1,17 @@
 # Discord PS5 - build entry point.
 #
-# Layout (research/discord-ps5/TASKS.md, T2.1):
+# Layout:
 #   core/           pure logic, no PS5 SDK -- compiles with the host toolchain
 #   platform/ps5/   PS5 implementation of the platform seams
-#   platform/host/  host substitutes, used by the tests only
-#   ui/             screens
+#   platform/host/  host substitutes: the test sinks and the snapshot runner
+#   ui/             screens, and the vendored drawing kit under ui/kit/
 #   tests/          host tests
 #   sce_sys/        title identity (param.json)
 #
 # Targets:
 #   make            build the PS5 application (needs the builder container)
 #   make test       build and run the host tests (native toolchain, no container)
+#   make host-snapshots  render every screen to build/snapshots/*.png (container, Mesa)
 #   make ffpkg      build the PS5 application and its UFS2 image, copied to dist/
 #   make stage      only stage the sources into the boilerplate harness
 #   make clean      drop host build output
@@ -19,8 +20,12 @@
 CXX      ?= c++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 
-HOST_SOURCES := $(shell find core platform/host tests -name '*.cpp' | sort)
+# snapshot_main.cpp has a main() of its own: it is the snapshot runner, not a test.
+HOST_SOURCES := $(shell find core platform/host tests -name '*.cpp' ! -name 'snapshot_main.cpp' | sort)
 HOST_BINARY  := build/host-tests
+
+# Which of the kit's themes the snapshots are rendered in.
+THEME ?= acrylic
 
 # The boilerplate harness builds our code, because it is the only one of the two
 # submodules that accepts outside sources (APP_SOURCE_DIR/APP_PARAM).
@@ -32,7 +37,7 @@ APP_VARS := APP_SOURCE_DIR=.local/discord-ps5/src \
             APP_PARAM=.local/discord-ps5/sce_sys/param.json \
             APP_INCLUDE_PATHS=.local/discord-ps5/src
 
-.PHONY: all app stage ffpkg test clean distclean
+.PHONY: all app stage ffpkg test host-snapshots clean distclean
 
 all: app
 
@@ -57,6 +62,11 @@ $(HOST_BINARY): $(HOST_SOURCES)
 test: $(HOST_BINARY)
 	@printf '%s\n' '==> [test] host unit tests'
 	@./$(HOST_BINARY)
+
+# Needs the builder container: Mesa's surfaceless EGL is installed there.
+host-snapshots:
+	@printf '%s\n' '==> [host-snapshots] rendering the screens (theme: $(THEME))'
+	@scripts/dev.sh bash tools/host-snapshots.sh $(THEME)
 
 clean:
 	@rm -rf build

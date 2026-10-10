@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T1.1 — run a command inside the PS5 builder container with this repo mounted at /work.
+# Run a command inside the PS5 builder container with this repo mounted at /work.
 #
 # Usage:
 #   scripts/dev.sh clang-18 --version

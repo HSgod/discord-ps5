@@ -2,8 +2,7 @@
  * Discord PS5 - Home screen.
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * T2.1 placeholder. The real screens are built on ps5-homebrew-ui in T2.2; for
- * now this only proves the drawing path end to end.
+ * Placeholder: it only proves the drawing path end to end.
  */
 
 #pragma once

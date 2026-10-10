@@ -10,6 +10,21 @@ na licencji **GPL-3.0-or-later** (patrz `LICENSE`).
 | [ps5-native-app-boilerplate](https://github.com/blackbearreloaded/ps5-native-app-boilerplate) | blackbearreloaded | `3ada439fa044f60c8b488678577a740761385711` | GPL-3.0 | `third_party/ps5-native-app-boilerplate` |
 | [ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui) | blackbearreloaded | `4b3fbb73fa309579570d42d0d7fcd60399d8b03b` | GPL-3.0 | `third_party/ps5-homebrew-ui` |
 
+## Skopiowany kod (vendor)
+
+| Komponent | Autor | Commit | Licencja | Ścieżka |
+|---|---|---|---|---|
+| [ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui) | blackbearreloaded | `4b3fbb73fa309579570d42d0d7fcd60399d8b03b` | GPL-3.0 | `ui/kit` |
+
+Podzbiór: `gfx`, `ui`, `core`, `audio`, `platform/ps5`, `third_party/stb` oraz
+`host/platform_host.cpp`. Każdy plik zachowuje nagłówek licencyjny oryginału.
+
+Zmiana wobec oryginału: dyrektywy `#include "gfx/…"`, `"ui/…"`, `"core/…"` i pokrewne
+są przepisane na `"ui/kit/…"`. Bez tego prefiksu drzewo kitu i drzewo aplikacji mają
+katalogi `core/`, `ui/` i `platform/` o tej samej nazwie, więc jeden `-I .` nie
+wystarcza i nagłówki się przesłaniają. Kopiowanie i przepisanie prefiksów odtwarza
+`tools/vendor-kit.sh` (wymaga submodułu `third_party/ps5-homebrew-ui` w tej wersji).
+
 ## Narzędzia budowy (nie w repo — instalowane w obrazie)
 
 | Komponent | Wersja | Licencja | Sposób pozyskania |
@@ -17,7 +32,7 @@ na licencji **GPL-3.0-or-later** (patrz `LICENSE`).
 | [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk) | `v0.43` (2026-08-29) | GPL-3.0 | release zip, sha256 `a9cc9929f21b2b2c5d5b309f3bab4997067c45281c0622cf4838b1aecba66fcb` |
 | LLVM / clang / lld | 18.1.3 | Apache-2.0 WITH LLVM-exception | `apt` (`clang-18`, `lld-18`, `llvm-18`) |
 
-## Planowane zależności (fazy 5–7, jeszcze nie w repo)
+## Planowane zależności (jeszcze nie w repo)
 
 Wg `research/discord-ps5/05-discord-voice-video.md` i `06-ps5-audio.md`. Wersje
 zostaną potwierdzone i przypięte w momencie dodania.
