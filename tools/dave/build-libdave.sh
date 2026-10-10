@@ -6,7 +6,7 @@
 # implementation, and the "off" branch compiles persisted_key_pair_null.cpp,
 # which hands back a null key pair so every session falls back to a transient
 # signature key. Nothing is stored on the console yet. Whether a real Discord
-# call needs a stable identity across restarts is a question for Faza 6, not
+# call needs a stable identity across restarts is a question for later, not
 # for this task; the code path to change is this flag plus a storage location.
 #
 # Exception and RTTI flags stay at the compiler's defaults in both builds, which

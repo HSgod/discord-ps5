@@ -21,7 +21,7 @@ NavAction nav_action(NavButton button, bool typing) noexcept
     case NavButton::right:
     case NavButton::down:
         /* Cross walks the list too, for now: no screen has anything of its
-         * own to confirm until the server list arrives in Faza 3. */
+         * own to confirm until the server list arrives. */
     case NavButton::cross:
         return NavAction::next_screen;
     case NavButton::circle:

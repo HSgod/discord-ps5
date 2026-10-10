@@ -93,7 +93,7 @@ struct Shell
     // that state is ui/nav.cpp; this file only feeds it buttons.
     accord::ui::NavState nav{};
     // The text the keyboard produced, kept until there is a composer to put it
-    // in (Faza 4).
+    // in.
     std::string typed;
     hui::ui::Keyboard keyboard;
 };

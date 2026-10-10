@@ -17,7 +17,7 @@ inline constexpr const char *kLogPath = "/data/accord/daemon.log";
 
 // T6.0-2: the DAVE probe at startup builds a key package for a session that has
 // no call behind it yet, so the group and the user are placeholders. The gateway
-// (Faza 3) replaces them with a real channel id and the account's own snowflake.
+// session replaces them with a real channel id and the account's own snowflake.
 inline constexpr std::uint64_t kDaveProbeGroupId = 0;
 inline constexpr const char *kDaveProbeUserId = "0";
 } // namespace accord::daemon
