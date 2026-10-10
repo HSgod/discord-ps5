@@ -35,9 +35,9 @@ Three artifacts these libraries end up in:
 - `build/host-tests` — the host tests (`make test`), and `build/hui_snapshots`
   (`make host-snapshots`, drawn with the container's Mesa).
 
-All of them are fetched or built into `build/`, `third_party/ps5-opengl` and
-`third_party/yyjson`, which git ignores; the repository holds only the scripts with the
-pinned versions.
+All of them are fetched or built into `build/`, `third_party/ps5-opengl`,
+`third_party/yyjson` and `third_party/zlib`, which git ignores; the repository holds
+only the scripts with the pinned versions.
 
 | Component | Version / pin | Licence | Where it is linked |
 |---|---|---|---|
@@ -47,6 +47,7 @@ pinned versions.
 | [nlohmann/json](https://github.com/nlohmann/json) | tag `v3.11.3` | MIT | nowhere directly: it is a header-only dependency of mlspp and goes into mlspp's objects when those are built (`tools/dave/build-mlspp.sh`). **Forbidden in `core/`** — it throws, and `JSON_NOEXCEPTION` turns an error into `abort()`; see T3.2 |
 | [OpenSSL](https://github.com/openssl/openssl) | 3.5.2 (tarball plus the sha256 OpenSSL itself publishes) | Apache-2.0 | `libcrypto.a` in `accordd.elf` (reached through mlspp); `libssl.a` is built in the same prefix and waits for the TLS client of T3.1 |
 | [yyjson](https://github.com/ibireme/yyjson) | 0.13.0, commit `6447536015f3d600f3d65323b10976103b337ca7` | MIT | `core/json.cpp` → `build/host-tests`, `accordd.elf` and `eboot.bin` (T3.2) |
+| [zlib](https://zlib.net) | 1.3.2, tarball `zlib-1.3.2.tar.gz` with the sha256 zlib.net publishes (`tools/fetch-zlib.sh`) | Zlib | `core/zlib_stream.cpp` → `build/host-tests`, `accordd.elf` and `eboot.bin` (T3.3b) |
 
 ## Build tools (not in the repository — installed in the image)
 
@@ -64,7 +65,6 @@ will be confirmed and pinned when they are added. Nothing in this table is linke
 |---|---|---|
 | [xiph/opus](https://github.com/xiph/opus) | BSD-3-Clause | voice encoding and decoding |
 | FFmpeg | LGPL-2.1-or-later / GPL-2.0-or-later | depending on the configuration flags; see research `05-…§7.1` |
-| zlib | Zlib | gateway stream compression (`zlib-stream`) |
 
 ## Notes
 
@@ -82,3 +82,10 @@ will be confirmed and pinned when they are added. Nothing in this table is linke
   project; we treat them as dependency content, not as instructions.
 - The release date of yyjson 0.13.0 is not confirmed by a source: the repository
   records the version and the commit SHA, not the date of the tag.
+- Of zlib only part is compiled, from the same pinned tree: `adler32.c`, `crc32.c`,
+  `inffast.c`, `inflate.c`, `inftrees.c` and `zutil.c` are the inflate side, and they
+  are what all three artifacts link. `deflate.c` and `trees.c` (the compressor) are
+  compiled for `build/host-tests` alone, where the tests compress their own fixtures;
+  the title and the daemon only ever read a compressed stream, never write one.
+- The zlib pin was checked on download: the sha256 of `zlib-1.3.2.tar.gz` matches the
+  one printed on zlib.net, and `tools/fetch-zlib.sh` refuses anything else.

@@ -65,6 +65,34 @@ $(JSON_OBJ): $(JSON_LIB)/yyjson.c
 	@mkdir -p $(@D)
 	$(CC) -O2 -Wall -Wextra -c $(JSON_LIB)/yyjson.c -o $@
 
+# core/zlib_stream.cpp inflates the gateway's `compress=zlib-stream`, with the
+# zlib pinned by tools/fetch-zlib.sh into third_party/zlib (not committed). Like
+# the parser above it is C, and it is fetched by itself.
+#
+# What is compiled here is the inflate side: the six files that answer for
+# inflateInit/inflate/inflateEnd and what they call. The compressor is a test
+# dependency -- the host tests make their own Z_SYNC_FLUSH fixtures and then read
+# them back with the same library -- so deflate.c and trees.c go into the tests
+# alone and no shipped artifact carries a compressor it never calls.
+ZLIB_LIB     := third_party/zlib
+ZLIB_OBJ_DIR := build/zlib
+ZLIB_INFLATE := adler32.c crc32.c inffast.c inflate.c inftrees.c zutil.c
+ZLIB_OBJECTS := $(patsubst %.c,$(ZLIB_OBJ_DIR)/%.o,$(ZLIB_INFLATE))
+ZLIB_FIXTURE_OBJECTS := $(ZLIB_OBJ_DIR)/deflate.o $(ZLIB_OBJ_DIR)/trees.o
+
+.PHONY: zlib-lib
+
+# The fetch brings the whole release at once, so any file that is not there yet
+# is a reason to run it -- and, once it is, a no-op.
+$(ZLIB_LIB)/%:
+	@bash tools/fetch-zlib.sh
+
+zlib-lib: $(ZLIB_LIB)/zlib.h
+
+$(ZLIB_OBJ_DIR)/%.o: $(ZLIB_LIB)/%.c
+	@mkdir -p $(@D)
+	$(CC) -O2 -Wall -Wextra -c $< -o $@
+
 # Which of the kit's themes the snapshots are rendered in.
 THEME ?= acrylic
 
@@ -96,7 +124,7 @@ APP_VARS := APP_SOURCE_DIR=.local/accord/src \
 
 all: app
 
-stage: $(JSON_LIB)/yyjson.c
+stage: $(JSON_LIB)/yyjson.c $(ZLIB_LIB)/zlib.h
 	@bash tools/stage-ps5-sources.sh
 
 # Inside the container: the payload SDK it copies the AGC stubs into, and the
@@ -116,17 +144,17 @@ ffpkg: stage opengl
 	@cp -a $(BOILERPLATE)/dist/$(TITLE_ID).ffpkg dist/
 	@printf '%s\n' "==> [ffpkg] dist/$(TITLE_ID).ffpkg"
 
-$(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ)
+$(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(ZLIB_FIXTURE_OBJECTS)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I. $(HOST_SOURCES) $(JSON_OBJ) -o $@
+	$(CXX) $(CXXFLAGS) -I. $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(ZLIB_FIXTURE_OBJECTS) -o $@
 
 test: $(HOST_BINARY)
 	@printf '%s\n' '==> [test] host unit tests'
 	@./$(HOST_BINARY)
 
-$(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ)
+$(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I. $(SOAK_SOURCES) $(JSON_OBJ) -o $@
+	$(CXX) $(CXXFLAGS) -I. $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) -o $@
 
 # Ten minutes of frames over loopback TCP, on one connection. The log of a run
 # is what T3.3 asks for, so it is kept: build/ws-soak.log.
@@ -141,7 +169,7 @@ host-snapshots:
 
 # The daemon is a payload, not a title: the bare SDK builds it rather than the
 # boilerplate harness, and it lands in dist/ as a single .elf.
-payload: $(JSON_LIB)/yyjson.c
+payload: $(JSON_LIB)/yyjson.c $(ZLIB_LIB)/zlib.h
 	@printf '%s\n' '==> [payload] background daemon (elf) in the builder container'
 	@scripts/dev.sh bash tools/build-daemon-payload.sh
 

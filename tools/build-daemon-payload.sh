@@ -37,6 +37,26 @@ yyjson_obj="$root/build/yyjson-ps5.o"
 mkdir -p "$(dirname "$yyjson_obj")"
 "$cc_c" -O2 -Wall -Wextra -c "$yyjson_dir/yyjson.c" -o "$yyjson_obj"
 
+# core/zlib_stream.cpp reads Discord's compressed gateway stream with the pinned
+# zlib, and zlib is C too, so the same C driver compiles it. The inflate side
+# only: the payload reads a compressed stream and never writes one, which is the
+# subset the Makefile links as well (the host tests add the compressor, but only
+# to build their own fixtures).
+zlib_dir="$root/third_party/zlib"
+if [ ! -f "$zlib_dir/zlib.h" ]; then
+    printf '%s\n' "==> [payload] missing $zlib_dir/zlib.h" >&2
+    printf '%s\n' "    fetch it first: bash tools/fetch-zlib.sh" >&2
+    exit 1
+fi
+zlib_obj_dir="$root/build/zlib-ps5"
+mkdir -p "$zlib_obj_dir"
+zlib_objects=()
+for name in adler32 crc32 inffast inflate inftrees zutil; do
+    object="$zlib_obj_dir/$name.o"
+    "$cc_c" -O2 -Wall -Wextra -c "$zlib_dir/$name.c" -o "$object"
+    zlib_objects+=("$object")
+done
+
 # A missing archive would show up only as a wall of undefined symbols at link
 # time, so each one is named up front with the command that builds it.
 dave_libs=(
@@ -66,7 +86,7 @@ done < <(find daemon/src core platform/ps5/dave -name '*.cpp' | sort)
 # dave_prefix/include/mlspp so that the <namespace.h> and <tls/...> inside them
 # resolve. The unwind self-test (T6.0-3) includes one of them.
 "$cc" -std=c++20 -O2 -Wall -Wextra -I. -I"$dave_prefix/include" -I"$dave_prefix/include/mlspp" \
-    -o "$out" "${sources[@]}" "$yyjson_obj" \
+    -o "$out" "${sources[@]}" "$yyjson_obj" "${zlib_objects[@]}" \
     -Wl,--start-group "${dave_libs[@]}" -Wl,--end-group \
     -lSceAudioOut
 

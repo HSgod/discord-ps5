@@ -47,6 +47,22 @@ json_src="$root/third_party/yyjson"
 mkdir -p -- "$staging/src/third_party/yyjson"
 cp -a -- "$json_src/yyjson.c" "$json_src/yyjson.h" "$staging/src/third_party/yyjson/"
 
+# core/zlib_stream.cpp reads the pinned decompressor the same way, as
+# "third_party/zlib/zlib.h". All of the headers come along -- zlib's own .c files
+# include their siblings -- but of the sources only the inflate side: the title
+# never compresses anything. The host tests link the compressor as well, and only
+# to build the fixtures they read back.
+zlib_src="$root/third_party/zlib"
+[[ -f $zlib_src/zlib.h ]] || {
+    printf 'missing %s: run tools/fetch-zlib.sh\n' "$zlib_src" >&2
+    exit 2
+}
+mkdir -p -- "$staging/src/third_party/zlib"
+cp -a -- "$zlib_src"/*.h "$zlib_src"/LICENSE "$staging/src/third_party/zlib/"
+for name in adler32 crc32 inffast inflate inftrees zutil; do
+    cp -a -- "$zlib_src/$name.c" "$staging/src/third_party/zlib/"
+done
+
 # The kit draws its text with SDF atlases it loads from the application's own
 # assets, so the six .huifont files (with their licences) are staged from the
 # vendored kit into assets/fonts, which the harness copies into the .ffpkg as
@@ -59,4 +75,4 @@ kit_assets="$root/third_party/ps5-homebrew-ui/assets/fonts"
 }
 cp -a -- "$kit_assets" "$staging/assets/fonts"
 
-printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json + assets/fonts + third_party/yyjson -> boilerplate/.local/accord'
+printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json + assets/fonts + third_party/yyjson + third_party/zlib -> boilerplate/.local/accord'

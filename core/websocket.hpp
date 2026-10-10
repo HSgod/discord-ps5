@@ -18,11 +18,16 @@
  * between fragments, verifies the accept key of the handshake, and fails the
  * connection with the right close code when the peer breaks the protocol.
  *
- * What it deliberately leaves out: permessage-deflate and the transport
- * compression Discord negotiates out of band (`compress=zlib-stream`), which is
- * T3.3b. A server that compresses a frame raises its RSV1 bit, and this client
- * treats any RSV bit as a protocol error, which is the correct reading when no
- * extension was negotiated.
+ * What it deliberately leaves out: permessage-deflate, the extension RFC 7692
+ * negotiates inside the handshake, and `zstd-stream`. A server that raised RSV1
+ * -- the bit that extension uses -- would be compressing a frame this client did
+ * not agree to, and every RSV bit stays a protocol error.
+ *
+ * Discord's own transport compression is not an extension and is read here:
+ * a request with zlib_stream set asks for `compress=zlib-stream`, and from then
+ * on the binary frames are pieces of one zlib stream rather than messages
+ * (T3.3b, core/zlib_stream.hpp). The events it carries come out of receive()
+ * as text, which is what they are: one JSON payload per flush.
  */
 
 #pragma once
@@ -34,15 +39,21 @@
 #include <string_view>
 
 #include "core/stream.hpp"
+#include "core/zlib_stream.hpp"
 
 namespace accord::core
 {
-// What opens a connection: where it goes, and the nonce it starts with.
+// What opens a connection: where it goes, the nonce it starts with, and whether
+// the events come back compressed.
 struct WebSocketRequest
 {
     std::string host;   // the Host header; the port stays out of it
     std::string target; // the request target, e.g. "/?v=10&encoding=json"
     std::array<std::uint8_t, 16> key{}; // fill_random() supplies this in the app
+    // True when the target says `compress=zlib-stream`: the two belong together,
+    // because this is what tells the reader below that a binary frame is a piece
+    // of the gateway's compressed stream and not a message of its own.
+    bool zlib_stream = false;
 };
 
 // RFC 6455 4.2.1: the key is the base64 of the 16-byte nonce.
@@ -68,7 +79,7 @@ enum class WsStatus
 enum class MessageKind
 {
     none,
-    text,
+    text,  // a text frame, or an event decompressed out of the zlib stream
     binary,
     pong,  // the peer answered a ping; pings themselves are answered inside receive()
     close, // the peer closed; the reply has gone out, closing the stream is the caller's
@@ -85,9 +96,11 @@ struct Message
 class WebSocket
 {
   public:
-    // One message, and the largest frame a peer may announce. The gateway's
-    // payloads are far smaller; this is the point where a broken or hostile
-    // peer is cut off rather than allowed to ask for memory.
+    // One message. The gateway's payloads are far smaller; this is the point
+    // where a broken or hostile peer is cut off rather than allowed to ask for
+    // memory. A compressed connection has two of these limits: this one for the
+    // frame on the wire, and ZlibStream::kMaxInflatedBytes for what it inflates
+    // to after the message is decompressed.
     static constexpr std::size_t kMaxMessageBytes = 1u << 20;
     static constexpr std::size_t kMaxControlBytes = 125;
 
@@ -106,6 +119,11 @@ class WebSocket
     // inside the object; close means the peer said goodbye and is_open() is
     // false afterwards. A timeout_ms of 0 is a poll: it reads what has already
     // arrived without waiting, so a frame that is there is never missed.
+    //
+    // On a compressed connection one event can take several frames to arrive and
+    // a frame can carry a piece of one event, so a call returns the next
+    // decompressed message and nothing else; a message already inflated is
+    // handed over before the stream is read at all.
     WsStatus receive(int timeout_ms, Message &out);
 
     WsStatus send_text(std::string_view text, int timeout_ms);
@@ -152,6 +170,7 @@ class WebSocket
     WsStatus reject(WsStatus status, std::string text);
 
     Stream *stream_ = nullptr;
+    ZlibStream inflater_;
     std::string inbound_; // bytes read and not yet consumed
     std::string message_; // the message being reassembled, if any
     std::string error_;
@@ -160,5 +179,8 @@ class WebSocket
     bool failed_ = false;
     bool close_sent_ = false;
     bool close_received_ = false;
+    // Set from the request by connect(): from then on a binary frame is a piece
+    // of the compressed stream instead of a message.
+    bool zlib_stream_ = false;
 };
 } // namespace accord::core

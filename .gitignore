@@ -16,6 +16,11 @@ third_party/ps5-opengl/
 # tools/fetch-yyjson.sh (see the header of that script for the version).
 third_party/yyjson/
 
+# And for the decompressor core/zlib_stream.cpp reads: fetched at a pinned
+# release by tools/fetch-zlib.sh, which checks it against the sha256 zlib.net
+# publishes.
+third_party/zlib/
+
 # macOS
 .DS_Store
 

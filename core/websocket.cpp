@@ -253,6 +253,13 @@ WsStatus WebSocket::connect(Stream &stream, const WebSocketRequest &request, int
     failed_ = false;
     close_sent_ = false;
     close_received_ = false;
+    // A compressed connection is one zlib stream from its first byte to its
+    // last, so a new connection -- a RESUME included, which Discord asks for
+    // with `resume_gateway_url` -- starts a new context. Inflating the new
+    // stream's first message with the old one's context would read its header as
+    // the middle of a block and fail.
+    zlib_stream_ = request.zlib_stream;
+    inflater_.reset();
 
     const std::string handshake = render_handshake(request);
     const StreamResult written = stream.write(
@@ -361,6 +368,16 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
 {
     while (true)
     {
+        // A decompressed event that is already there comes first: the caller was
+        // promised one message per call, and the frame it arrived in is spent.
+        if (zlib_stream_ && inflater_.next(&out.payload))
+        {
+            if (!is_valid_utf8(out.payload))
+                return fail(WsStatus::protocol_error, "a decompressed message is not UTF-8");
+            out.kind = MessageKind::text;
+            return WsStatus::ok;
+        }
+
         WsStatus status = need(2, deadline_ms);
         if (status != WsStatus::ok)
             return status;
@@ -441,6 +458,37 @@ WsStatus WebSocket::next_event(std::int64_t deadline_ms, Message &out)
 
         std::string payload{inbound_.data() + head_size, static_cast<std::size_t>(length)};
         inbound_.erase(0, head_size + static_cast<std::size_t>(length));
+
+        // On a connection that asked for `compress=zlib-stream` the binary
+        // frames are not messages: they are pieces of one zlib stream, and the
+        // flush marker inside it -- not the frame boundary -- is where an event
+        // ends. Fragmentation is just another way of splitting those pieces, so
+        // every part is handed over as it arrives, and the frame's own fin bit
+        // only says whether a binary message is still open.
+        //
+        // Control frames are not pieces of anything: a ping may arrive between
+        // the fragments of a compressed message (RFC 6455 5.4), and its payload
+        // is a ping payload rather than compressed bytes.
+        if (zlib_stream_ && !control &&
+            (opcode == kOpBinary || fragment_opcode_ == kOpBinary))
+        {
+            fragment_opcode_ = fin ? 0 : kOpBinary;
+            switch (inflater_.feed(payload))
+            {
+            case ZlibStatus::ok:
+                break;
+            case ZlibStatus::too_large:
+                send_close(1009, "message too big", kReplyTimeoutMs);
+                return fail(WsStatus::too_large,
+                            "the decompressed message is over the size limit: " + inflater_.error());
+            case ZlibStatus::no_context:
+                return fail(WsStatus::transport_error, inflater_.error());
+            case ZlibStatus::corrupt:
+                return fail(WsStatus::protocol_error,
+                            "the compressed stream is broken: " + inflater_.error());
+            }
+            continue; // a complete event may be waiting now
+        }
 
         if (opcode == kOpPing)
         {

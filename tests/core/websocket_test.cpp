@@ -18,9 +18,11 @@
 
 #include "core/websocket.hpp"
 #include "tests/support/memory_stream.hpp"
+#include "tests/support/zlib_peer.hpp"
 
 using namespace accord::core;
 using accord::test::MemoryStream;
+using accord::test::ZlibPeer;
 
 namespace
 {
@@ -302,6 +304,37 @@ void check_protocol_error(MemoryStream &stream, WebSocket &socket, std::string_v
     MICRO_CHECK_EQ(close_code_of(close_frame_in(stream.written())),
                    static_cast<std::size_t>(kCodeProtocolError));
     MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"closed"});
+}
+
+// --- a connection that asked for the compressed stream ---
+
+WebSocketRequest compressed_request()
+{
+    WebSocketRequest request = sample_request();
+    request.target = "/?v=10&encoding=json&compress=zlib-stream";
+    request.zlib_stream = true;
+    return request;
+}
+
+bool open_compressed_session(MemoryStream &stream, WebSocket &socket)
+{
+    stream.feed(handshake_response());
+    const bool ok = socket.connect(stream, compressed_request(), 1000) == WsStatus::ok;
+    stream.clear_written();
+    return ok;
+}
+
+int hex_digit(char c)
+{
+    return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10;
+}
+
+std::string unhex(std::string_view hex)
+{
+    std::string out;
+    for (std::size_t at = 0; at + 1 < hex.size(); at += 2)
+        out.push_back(static_cast<char>((hex_digit(hex[at]) << 4) | hex_digit(hex[at + 1])));
+    return out;
 }
 } // namespace
 
@@ -1117,6 +1150,179 @@ MICRO_TEST(a_fragmented_message_that_ends_at_the_limit_is_allowed)
     Message message;
     MICRO_CHECK_EQ(name_of(socket.receive(2000, message)), std::string{"ok"});
     MICRO_CHECK_EQ(message.payload.size(), WebSocket::kMaxMessageBytes);
+}
+
+// --- a compressed connection (compress=zlib-stream) ---
+
+// Three events of one connection's zlib stream, compressed by Python's zlib:
+// one deflate context, a Z_SYNC_FLUSH after each event, so only the first piece
+// carries a zlib header. Nothing in this repository made these bytes.
+constexpr std::string_view kEventHello = "{\"op\":10,\"d\":{\"heartbeat_interval\":41250}}";
+constexpr std::string_view kEventReady = "{\"op\":0,\"t\":\"READY\",\"s\":1}";
+constexpr std::string_view kEventResumed = "{\"op\":11,\"d\":null}";
+constexpr std::string_view kPieceHello =
+    "789caa56ca2f50b23234d0514a51b2aa56ca484d2c2a494a4d2c89cfcc2b492d2a4bcc51b23231343235a8ad0500"
+    "0000ffff";
+constexpr std::string_view kPieceReady = "aa06ab042a2c51b2520a7275748954d2512a06eaad05000000ffff";
+constexpr std::string_view kPieceResumed = "82c8181a82cdc82bcdc9a905000000ffff";
+
+MICRO_TEST(a_compressed_event_arrives_as_text)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+
+    // The frame is binary; the event inside it is not. A caller above this has
+    // no business knowing which one the gateway chose to carry an event in.
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"text"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
+    MICRO_CHECK(socket.is_open());
+}
+
+MICRO_TEST(an_event_split_over_fragments_arrives_whole)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+
+    Message message;
+
+    // The stream's first event, whole: a context can only start there.
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
+
+    // The second event, cut in two: nothing of it is handed over until the piece
+    // that carries the flush marker arrives.
+    const std::string piece = unhex(kPieceReady);
+    stream.feed(server_frame(kOpBinary, piece.substr(0, 3), false));
+
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    MICRO_CHECK(socket.is_open());
+    MICRO_CHECK(socket.error().empty());
+
+    // A ping may arrive between the fragments. It is not part of the stream, and
+    // it still gets its pong.
+    stream.feed(server_frame(kOpPing, "ping"));
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    const std::vector<OutFrame> answers = frames_in(stream.written());
+    MICRO_CHECK_EQ(answers.size(), static_cast<std::size_t>(1));
+    MICRO_CHECK_EQ(answers[0].opcode, static_cast<std::size_t>(kOpPong));
+    MICRO_CHECK_EQ(answers[0].payload, std::string{"ping"});
+
+    stream.feed(server_frame(kOpContinuation, piece.substr(3)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"text"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventReady});
+}
+
+MICRO_TEST(two_events_share_one_compressed_stream)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+
+    Message message;
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
+
+    // The second piece has no zlib header of its own: it is the same stream, so
+    // it can only be read by the context the first one started.
+    stream.feed(server_frame(kOpBinary, unhex(kPieceReady)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventReady});
+
+    stream.feed(server_frame(kOpBinary, unhex(kPieceResumed)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventResumed});
+}
+
+MICRO_TEST(a_broken_compressed_stream_is_a_protocol_error)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+    stream.clear_written();
+
+    // A zlib stream that says it is one and then fails: a stored block whose
+    // length and its complement disagree, and the flush marker that makes the
+    // reader look at it.
+    constexpr char kBadStoredBlock[] = "\x78\x9c\x00\x05\x00\x00\x00\x00\x00\xff\xff";
+    stream.feed(server_frame(kOpBinary,
+                             std::string_view{kBadStoredBlock, sizeof(kBadStoredBlock) - 1}));
+
+    check_protocol_error(stream, socket, "compressed stream is broken");
+}
+
+MICRO_TEST(a_compressed_message_over_the_limit_is_cut_off_with_1009)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+    stream.clear_written();
+
+    // The frame on the wire is small enough to pass the frame limit; what it
+    // inflates to is not, and that is the limit of its own this connection has.
+    ZlibPeer peer;
+    const std::string wire = peer.push(std::string(ZlibStream::kMaxInflatedBytes + 1, 'a'));
+    MICRO_CHECK(wire.size() < WebSocket::kMaxMessageBytes);
+    stream.feed(server_frame(kOpBinary, wire));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"too_large"});
+    MICRO_CHECK(!socket.is_open());
+    MICRO_CHECK(contains(socket.error(), "size limit"));
+    MICRO_CHECK_EQ(close_code_of(close_frame_in(stream.written())),
+                   static_cast<std::size_t>(kCodeTooLarge));
+}
+
+MICRO_TEST(a_second_connection_starts_a_new_compressed_stream)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_compressed_session(stream, socket));
+
+    Message message;
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
+
+    // The same first piece on a second connection -- what a RESUME does: a new
+    // stream, whose first bytes are a zlib header again. Kept over from the first
+    // connection, the old context would read this header as the middle of its
+    // last block and the connection would die on its first event.
+    MICRO_CHECK(open_compressed_session(stream, socket));
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{kEventHello});
+
+    // And the other direction: a piece with no header cannot be read by a
+    // context that has started fresh, which is the same rule seen from here.
+    MICRO_CHECK(open_compressed_session(stream, socket));
+    stream.feed(server_frame(kOpBinary, unhex(kPieceReady)));
+    check_protocol_error(stream, socket, "compressed stream is broken");
+}
+
+MICRO_TEST(binary_frames_are_messages_without_the_compressed_stream)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+
+    // The same bytes that carry an event on a compressed connection are a
+    // message of their own on a plain one: what makes them a stream is the
+    // request, not the bytes.
+    stream.feed(server_frame(kOpBinary, unhex(kPieceHello)));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(1000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"binary"});
+    MICRO_CHECK_EQ(message.payload, unhex(kPieceHello));
 }
 
 // --- the transport underneath ---
