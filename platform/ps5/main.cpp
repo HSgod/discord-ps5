@@ -11,12 +11,16 @@
  * are the same functions the host renders (make host-snapshots), so a picture
  * reviewed on the PC is the picture this loop draws.
  *
+ * Reading the pad is the SDK's, and stays here; deciding what a button means is
+ * the shell's, and lives in ui/nav.cpp, where the host tests can drive it.
+ *
  * Nothing here talks to Discord. The daemon owns the session; this title will
  * show what the daemon reports over 127.0.0.1.
  */
 
 #include "core/app_info.hpp"
 #include "core/log.hpp"
+#include "platform/ps5/app_heap.hpp"
 #include "platform/ps5/log_sink.hpp"
 #include "ui/kit/core/save_file.hpp"
 #include "ui/kit/gfx/font.hpp"
@@ -28,6 +32,7 @@
 #include "ui/kit/ui/feedback.hpp"
 #include "ui/kit/ui/fonts.hpp"
 #include "ui/kit/ui/theme.hpp"
+#include "ui/nav.hpp"
 #include "ui/screens.hpp"
 
 #include <GL/glcorearb.h>
@@ -84,54 +89,92 @@ struct Shell
     const hui::ui::Theme &theme;
     hui::gfx::Renderer &renderer;
     std::span<const accord::ui::Screen> screens;
-    std::size_t screen = 0;
-    // The keyboard is up: it owns the input, and the text it produces is kept
-    // until there is a composer to put it in.
-    bool typing = false;
+    // Which screen is up and whether the keyboard has the input. What moves
+    // that state is ui/nav.cpp; this file only feeds it buttons.
+    accord::ui::NavState nav{};
+    // The text the keyboard produced, kept until there is a composer to put it
+    // in (Faza 4).
     std::string typed;
     hui::ui::Keyboard keyboard;
 };
 
-void settle_screen(Shell &shell, std::ptrdiff_t step)
+// The kit's logical actions reduced to the ones the shell's navigation knows
+// (ui/nav.hpp). One button per frame, so the order is a priority: the face
+// buttons first, then the directions, which the tracker also reports for the
+// stick and repeats while it is held.
+accord::ui::NavButton button_from(const hui::InputFrame &input)
 {
-    const auto count = static_cast<std::ptrdiff_t>(shell.screens.size());
-    const auto index = static_cast<std::ptrdiff_t>(shell.screen);
-    shell.screen = static_cast<std::size_t>(((index + step) % count + count) % count);
-    log(LogLevel::info, std::string("screen ") + shell.screens[shell.screen].title);
+    using accord::ui::NavButton;
+    if (input.is_pressed(hui::Action::confirm))
+        return NavButton::cross;
+    if (input.is_pressed(hui::Action::back))
+        return NavButton::circle;
+    if (input.is_pressed(hui::Action::north))
+        return NavButton::triangle;
+    if (input.is_pressed(hui::Action::west))
+        return NavButton::square;
+    if (input.is_pressed(hui::Action::menu))
+        return NavButton::options;
+    if (input.is_pressed(hui::Action::touch))
+        return NavButton::touch;
+    if (input.is_pressed(hui::Action::right) || input.nav == hui::Direction::right ||
+        input.is_pressed(hui::Action::page_next))
+        return NavButton::right;
+    if (input.is_pressed(hui::Action::left) || input.nav == hui::Direction::left ||
+        input.is_pressed(hui::Action::page_prev))
+        return NavButton::left;
+    if (input.is_pressed(hui::Action::down) || input.nav == hui::Direction::down)
+        return NavButton::down;
+    if (input.is_pressed(hui::Action::up) || input.nav == hui::Direction::up)
+        return NavButton::up;
+    return NavButton::none;
 }
 
-// The keyboard takes the frame while it is up; a Done key press puts it away
-// and reports what was typed.
-void drive_keyboard(Shell &shell, const hui::InputFrame &input, hui::ui::Feedback &feedback)
+// The keyboard takes the frame while it is up; Done puts it away and reports
+// what was typed, and so does Circle, which the shell's navigation owns.
+void step_keyboard(Shell &shell, const hui::InputFrame &input, accord::ui::NavButton button)
 {
+    hui::ui::Feedback feedback;
     const hui::ui::Event event = shell.keyboard.handle(input, feedback);
-    if (event == hui::ui::Event::activated || event == hui::ui::Event::cancelled)
+    const bool closed =
+        event == hui::ui::Event::activated || event == hui::ui::Event::cancelled;
+    if (closed || accord::ui::nav_action(button, true) == accord::ui::NavAction::close_keyboard)
     {
         log(LogLevel::info, std::string("keyboard closed: \"") + shell.typed + "\"");
-        shell.typing = false;
-        shell.keyboard.set_active(false);
         shell.typed.clear();
+        accord::ui::nav_apply(shell.nav, accord::ui::NavAction::close_keyboard);
+    }
+    else
+    {
+        shell.keyboard.set_length(static_cast<int>(shell.typed.size()));
     }
 }
 
-void drive_screen(Shell &shell, const hui::InputFrame &input)
+void step_screens(Shell &shell, accord::ui::NavButton button)
 {
-    // Directions walk the screens the way the screens themselves are ordered;
-    // Cross opens the next one, Circle goes back.
-    if (input.nav == hui::Direction::right || input.is_pressed(hui::Action::page_next) ||
-        input.is_pressed(hui::Action::confirm))
-        settle_screen(shell, 1);
-    else if (input.nav == hui::Direction::left || input.is_pressed(hui::Action::page_prev) ||
-             input.is_pressed(hui::Action::back))
-        settle_screen(shell, -1);
-    else if (input.is_pressed(hui::Action::north))
+    const accord::ui::NavAction action = accord::ui::nav_action(button, false);
+    if (action == accord::ui::NavAction::open_keyboard)
     {
-        shell.typing = true;
-        shell.keyboard.set_active(true);
         shell.keyboard.enter();
         log(LogLevel::info, "keyboard opened");
     }
-    else if (input.is_pressed(hui::Action::menu))
+    accord::ui::nav_apply(shell.nav, action);
+}
+
+void step_shell(Shell &shell, const hui::InputFrame &input)
+{
+    const std::size_t before = shell.nav.screen;
+    const accord::ui::NavButton button = button_from(input);
+
+    if (shell.nav.typing)
+        step_keyboard(shell, input, button);
+    else
+        step_screens(shell, button);
+
+    shell.keyboard.set_active(shell.nav.typing);
+    if (shell.nav.screen != before)
+        log(LogLevel::info, std::string("screen ") + shell.screens[shell.nav.screen].title);
+    if (shell.nav.quitting)
     {
         // No menu yet: Options is the way out of a development build.
         hui::sys::quit();
@@ -140,13 +183,13 @@ void drive_screen(Shell &shell, const hui::InputFrame &input)
 
 void draw_frame(Shell &shell, float seconds)
 {
-    const accord::ui::Screen &screen = shell.screens[shell.screen];
+    const accord::ui::Screen &screen = shell.screens[shell.nav.screen];
     const accord::ui::ScreenContext context{shell.fonts, shell.theme,
                                             shell.renderer.glass_texture(), seconds};
     hui::gfx::DrawList list;
     screen.draw(list, context);
 
-    if (shell.typing)
+    if (shell.nav.typing)
     {
         // A scrim, then the keyboard on top of the screen it belongs to.
         list.rounded_rect({0.0f, 0.0f, 1920.0f, 1080.0f}, 0.0f,
@@ -210,6 +253,7 @@ int main()
     hui::InputTracker tracker;
 
     Shell shell{fonts, *theme, renderer, accord::ui::screens()};
+    shell.nav.screens = shell.screens.size();
     shell.keyboard.style.theme = *theme;
     shell.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
     shell.keyboard.set_bounds(kKeyboardBounds);
@@ -238,16 +282,7 @@ int main()
             tracker.update(std::span<const hui::PadSample>(samples, count),
                            static_cast<std::uint64_t>(now));
 
-        hui::ui::Feedback feedback;
-        if (shell.typing)
-        {
-            drive_keyboard(shell, input, feedback);
-            shell.keyboard.set_length(static_cast<int>(shell.typed.size()));
-        }
-        else
-        {
-            drive_screen(shell, input);
-        }
+        step_shell(shell, input);
         shell.keyboard.update(dt);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -271,8 +306,18 @@ int main()
         }
         else if (frames % 600 == 0)
         {
+            // The heap counters say whether the arena holds what the title
+            // allocates and whether it ever refused an allocation.
+            std::size_t live = 0;
+            std::size_t peak = 0;
+            std::size_t blocks = 0;
+            std::size_t failures = 0;
+            accord_heap_stats(&live, &peak, &blocks, &failures);
             log(LogLevel::info, std::string("frame ") + std::to_string(frames) + ", draws=" +
-                                    std::to_string(renderer.last_draw_calls()));
+                                    std::to_string(renderer.last_draw_calls()) + ", heap=" +
+                                    std::to_string(live) + "/" + std::to_string(peak) +
+                                    " blocks=" + std::to_string(blocks) + " failures=" +
+                                    std::to_string(failures));
         }
     }
 }

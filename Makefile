@@ -28,8 +28,12 @@ CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
 # snapshot_main.cpp and the daemon's main.cpp carry a main() of their own: one is
 # the snapshot runner, the other the payload entry point, neither is a test.
 # audio_ps5.cpp links against libSceAudioOut, so it stays out of the host build.
+# Of ui/ only the navigation is host-clean: it is the shell's input logic, with
+# no kit and no SDK in it, which is why it is listed by hand. The screens and
+# the drawing code need the kit and are exercised by `make host-snapshots`.
 HOST_SOURCES := $(shell find core platform/host daemon tests -name '*.cpp' \
-                   ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort)
+                   ! -name 'snapshot_main.cpp' ! -name 'main.cpp' ! -name 'audio_ps5.cpp' | sort) \
+                ui/nav.cpp
 HOST_BINARY  := build/host-tests
 
 # Which of the kit's themes the snapshots are rendered in.
@@ -47,12 +51,16 @@ STAGING     := $(BOILERPLATE)/.local/accord
 # its own root, which is the parent of both our tree and the SDK.
 OPENGLS := third_party/ps5-opengl
 
+# --wrap is what routes the process's allocations into the arena
+# platform/ps5/app_heap.c keeps (and the splash hold in opengl_runtime_shims.c
+# needs its own wrap). The harness links the wrappers only because the symbols
+# are listed here: drop a name and its __wrap_* is dead code.
 APP_VARS := APP_SOURCE_DIR=.local/accord/src \
             APP_PARAM=.local/accord/sce_sys/param.json \
             'APP_INCLUDE_PATHS=../ps5-opengl/sdk/include .local/accord/src' \
             APP_DEFINITIONS=GL_GLEXT_PROTOTYPES=1 \
             APP_STATIC_ARCHIVES=../ps5-opengl/libps5opengl-group.a \
-            APP_WRAP_SYMBOLS=sceSystemServiceHideSplashScreen \
+            'APP_WRAP_SYMBOLS=sceSystemServiceHideSplashScreen malloc calloc realloc free posix_memalign malloc_usable_size' \
             APP_ASSETS=.local/accord/assets
 
 .PHONY: all app stage opengl ffpkg test host-snapshots payload dave-deps dave-host-test clean distclean
