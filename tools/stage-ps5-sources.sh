@@ -7,15 +7,17 @@
 # "core/log.hpp" keep working.
 #
 # platform/host/ is deliberately NOT staged: it is a host substitute and must
-# never reach the console.
+# never reach the console. For the same reason ui/kit/host/ stays behind: it
+# defines the kit's sys:: seam for the PC (monotonic_us, log, park, quit) and
+# would collide with ui/kit/platform/ps5/system.cpp, which defines the same
+# symbols for the console.
 #
-# ui/kit/ and the screens that draw on it are left out of the console build for
-# now. The kit renders through ps5-opengl, and the boilerplate harness ships no
-# GL headers, no link group and no SceAgc import stubs, so pulling the kit in
-# means wiring all three and moving the entry point off demo_renderer. That
-# change belongs with the console run it needs, not with the host preview.
-# Until then the console app keeps drawing its own screen, and
-# tools/host-snapshots.sh builds the kit on the host alone.
+# platform/ps5/dave/ belongs to the payload build alone. It includes
+# <dave/dave.h> from the cross-built prefix under build/, and it needs
+# exceptions and RTTI, while the harness compiles the title with
+# -fno-exceptions -fno-rtti. Staging it broke the title build with
+# "dave/dave.h file not found". The payload reads its sources straight from
+# this tree, so nothing here depends on that directory.
 
 set -euo pipefail
 
@@ -23,15 +25,26 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 staging="$root/third_party/ps5-native-app-boilerplate/.local/accord"
 
 rm -rf -- "$staging"
-mkdir -p -- "$staging/src" "$staging/sce_sys"
+mkdir -p -- "$staging/src" "$staging/sce_sys" "$staging/assets"
 
 cp -a -- "$root/core" "$staging/src/core"
 mkdir -p -- "$staging/src/platform"
 cp -a -- "$root/platform/ps5" "$staging/src/platform/ps5"
 cp -a -- "$root/ui" "$staging/src/ui"
-rm -rf -- "$staging/src/ui/kit" "$staging/src/ui/screens" \
-    "$staging/src/ui/screens.cpp" "$staging/src/ui/screens.hpp"
+rm -rf -- "$staging/src/platform/ps5/dave" "$staging/src/ui/kit/host"
 
 cp -a -- "$root/sce_sys/param.json" "$staging/sce_sys/param.json"
 
-printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json -> boilerplate/.local/accord'
+# The kit draws its text with SDF atlases it loads from the application's own
+# assets, so the six .huifont files (with their licences) are staged from the
+# vendored kit into assets/fonts, which the harness copies into the .ffpkg as
+# /app0/assets. They are third-party binaries: staged, not committed here.
+kit_assets="$root/third_party/ps5-homebrew-ui/assets/fonts"
+[[ -d $kit_assets ]] || {
+    printf 'missing %s: run git submodule update --init third_party/ps5-homebrew-ui\n' \
+        "$kit_assets" >&2
+    exit 2
+}
+cp -a -- "$kit_assets" "$staging/assets/fonts"
+
+printf '%s\n' '==> [stage] core/ platform/ps5/ ui/ + sce_sys/param.json + assets/fonts -> boilerplate/.local/accord'

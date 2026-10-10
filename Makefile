@@ -18,6 +18,7 @@
 #   make dave-host-test  native libdave suite plus the facade smoke test (container)
 #   make ffpkg      build the PS5 application and its UFS2 image, copied to dist/
 #   make stage      only stage the sources into the boilerplate harness
+#   make opengl     fetch and prepare the OpenGL SDK the kit links against
 #   make clean      drop host build output
 #   make distclean  also drop the staged tree inside the boilerplate
 
@@ -40,22 +41,38 @@ BOILERPLATE := third_party/ps5-native-app-boilerplate
 TITLE_ID    := PPSA99070
 STAGING     := $(BOILERPLATE)/.local/accord
 
+# The kit draws with OpenGL, so the title needs the ps5-opengl SDK: its headers
+# on the include path, GL entry points visible as prototypes, and the link group
+# tools/prepare-opengl.sh writes. The harness resolves each of these relative to
+# its own root, which is the parent of both our tree and the SDK.
+OPENGLS := third_party/ps5-opengl
+
 APP_VARS := APP_SOURCE_DIR=.local/accord/src \
             APP_PARAM=.local/accord/sce_sys/param.json \
-            APP_INCLUDE_PATHS=.local/accord/src
+            'APP_INCLUDE_PATHS=../ps5-opengl/sdk/include .local/accord/src' \
+            APP_DEFINITIONS=GL_GLEXT_PROTOTYPES=1 \
+            APP_STATIC_ARCHIVES=../ps5-opengl/libps5opengl-group.a \
+            APP_WRAP_SYMBOLS=sceSystemServiceHideSplashScreen \
+            APP_ASSETS=.local/accord/assets
 
-.PHONY: all app stage ffpkg test host-snapshots payload dave-deps dave-host-test clean distclean
+.PHONY: all app stage opengl ffpkg test host-snapshots payload dave-deps dave-host-test clean distclean
 
 all: app
 
 stage:
 	@bash tools/stage-ps5-sources.sh
 
-app: stage
+# Inside the container: the payload SDK it copies the AGC stubs into, and the
+# clang-18 it takes the builtins from, are the container's.
+opengl:
+	@printf '%s\n' '==> [opengl] ps5-opengl SDK and link group'
+	@scripts/dev.sh bash tools/prepare-opengl.sh
+
+app: stage opengl
 	@printf '%s\n' '==> [app] PS5 build in the builder container'
 	@scripts/dev.sh make -C $(BOILERPLATE) app $(APP_VARS)
 
-ffpkg: stage
+ffpkg: stage opengl
 	@printf '%s\n' '==> [ffpkg] PS5 build and UFS2 image'
 	@scripts/dev.sh make -C $(BOILERPLATE) ffpkg $(APP_VARS)
 	@mkdir -p dist
