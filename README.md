@@ -59,8 +59,3 @@ GPL-3.0-or-later — see `LICENSE`. The interface kit Accord draws with is
 [ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui), also GPL-3.0-or-later,
 which is why the whole app carries that licence. Licences of every bundled component are listed in
 `THIRD_PARTY.md`.
-
-## Building it yourself
-
-Developer documentation — how the app is put together, how to build it, and what each `make`
-target does — lives in `docs/BUILD.md`.
