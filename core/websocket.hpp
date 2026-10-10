@@ -98,11 +98,14 @@ class WebSocket
 
     // The stream must already be connected and must outlive this object. On any
     // status other than ok the connection is not usable and error() says why.
+    // timeout_ms of 0 still sends the request and has one look at the answer,
+    // which is what a caller that cannot wait wants.
     WsStatus connect(Stream &stream, const WebSocketRequest &request, int timeout_ms);
 
     // One event. Timeout leaves the connection open and any half-read frame
     // inside the object; close means the peer said goodbye and is_open() is
-    // false afterwards.
+    // false afterwards. A timeout_ms of 0 is a poll: it reads what has already
+    // arrived without waiting, so a frame that is there is never missed.
     WsStatus receive(int timeout_ms, Message &out);
 
     WsStatus send_text(std::string_view text, int timeout_ms);
@@ -133,7 +136,9 @@ class WebSocket
     }
 
   private:
-    // Waits until `count` bytes sit in inbound_, or the deadline passes.
+    // Waits until `count` bytes sit in inbound_, or the deadline passes. An
+    // expired deadline still brings one look at the stream, so nothing that has
+    // already arrived is left unread.
     WsStatus need(std::size_t count, std::int64_t deadline_ms);
     // Reads one frame and leaves it in `out` when it is an app-level event.
     // Pings are answered here and do not come back to the caller.

@@ -34,6 +34,9 @@ std::int64_t now_ms() noexcept
         .count();
 }
 
+// How long a stream call may wait. Zero is not "do not read": it is one look at
+// what has already arrived, which is what a caller polling with receive(0) asks
+// for, and what keeps a frame that is already in the buffer from being missed.
 int remaining_ms(std::int64_t deadline_ms) noexcept
 {
     const std::int64_t left = deadline_ms - now_ms();
@@ -268,13 +271,17 @@ WsStatus WebSocket::connect(Stream &stream, const WebSocketRequest &request, int
             return fail(WsStatus::protocol_error, "the handshake response head is too long");
 
         const int wait = remaining_ms(deadline_ms);
-        if (wait == 0)
-            return fail(WsStatus::timeout, "no handshake response inside the wait");
-
         std::uint8_t chunk[kReadChunk];
         const StreamResult result = stream.read(chunk, sizeof(chunk), wait);
         if (result.status == StreamStatus::timeout)
-            continue;
+        {
+            // With time left this is an ordinary loop. With none it was the one
+            // look the expired deadline is still owed, and the answer is now the
+            // timeout the caller asked for.
+            if (wait > 0)
+                continue;
+            return fail(WsStatus::timeout, "no handshake response inside the wait");
+        }
         if (result.status == StreamStatus::closed)
             return fail(WsStatus::closed, "the server closed the connection during the handshake");
         if (result.status == StreamStatus::failed || result.transferred == 0)
@@ -322,14 +329,21 @@ WsStatus WebSocket::need(std::size_t count, std::int64_t deadline_ms)
 {
     while (inbound_.size() < count)
     {
+        // A zero wait is one look at the stream without waiting, so a frame that
+        // is already there is found instead of being declared absent.
         const int wait = remaining_ms(deadline_ms);
-        if (wait == 0)
-            return WsStatus::timeout;
 
         std::uint8_t chunk[kReadChunk];
         const StreamResult result = stream_->read(chunk, sizeof(chunk), wait);
         if (result.status == StreamStatus::timeout)
-            continue;
+        {
+            // Nothing there right now: with time left the loop waits again, with
+            // none the caller gets the timeout it asked for. Either way the bytes
+            // already in inbound_ stay, so the half of a frame is never lost.
+            if (wait > 0)
+                continue;
+            return WsStatus::timeout;
+        }
         if (result.status == StreamStatus::closed)
         {
             if (!inbound_.empty() || !message_.empty())

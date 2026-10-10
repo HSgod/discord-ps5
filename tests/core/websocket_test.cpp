@@ -10,6 +10,7 @@
 #include "tests/micro_test.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -1195,4 +1196,166 @@ MICRO_TEST(nothing_can_be_sent_or_received_before_connecting)
     MICRO_CHECK_EQ(name_of(socket.receive(10, message)), std::string{"closed"});
     MICRO_CHECK_EQ(name_of(socket.send_text("x", 10)), std::string{"closed"});
     MICRO_CHECK_EQ(name_of(socket.send_close(1000, "", 10)), std::string{"closed"});
+}
+
+// --- a wait of zero (a poll) ---
+//
+// The demon's loop asks the socket for what has arrived without waiting for it,
+// so a zero wait has to mean "look once, do not sit there". A zero wait that
+// reads nothing at all would leave the loop blind on every poll, and a message
+// that arrived before the call would never be picked up.
+
+MICRO_TEST(a_frame_that_is_already_there_comes_out_of_a_zero_wait)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+    stream.feed(server_frame(kOpText, "already here"));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"text"});
+    MICRO_CHECK_EQ(message.payload, std::string{"already here"});
+    MICRO_CHECK(socket.is_open());
+}
+
+MICRO_TEST(a_zero_wait_brings_out_every_frame_that_is_already_there)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+    stream.feed(server_frame(kOpText, "first"));
+    stream.feed(server_frame(kOpText, "second"));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{"first"});
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{"second"});
+    // Only now is there nothing left to look at.
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+}
+
+MICRO_TEST(a_zero_wait_on_an_empty_stream_answers_at_once)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+
+    const auto started = std::chrono::steady_clock::now();
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    const long long spent = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - started)
+                                .count();
+
+    // Generous on purpose: a loaded machine may take a few milliseconds, but the
+    // call may not wait for the thing the caller said it would not wait for.
+    MICRO_CHECK(spent < 100);
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"none"});
+    MICRO_CHECK(socket.is_open());
+}
+
+MICRO_TEST(a_poll_loop_finds_the_message_once_it_arrives)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    stream.feed_timeout(); // a poll that found nothing on a live socket
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+
+    stream.feed(server_frame(kOpText, "late"));
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{"late"});
+}
+
+MICRO_TEST(a_zero_wait_keeps_the_half_of_a_frame_it_looked_at)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+
+    const std::string frame = server_frame(kOpText, "abcdef");
+    stream.feed(std::string_view{frame}.substr(0, 3));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+
+    // The three bytes it did read are still inside, so the rest completes them.
+    stream.feed(std::string_view{frame}.substr(3));
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{"abcdef"});
+}
+
+MICRO_TEST(a_zero_wait_still_answers_a_ping_that_arrived)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+    stream.clear_written();
+
+    stream.feed(server_frame(kOpPing, "ask"));
+
+    Message message;
+    // A ping is not an event for the caller, so the poll answers it and reports
+    // that there was nothing to hand over -- with the pong already on the wire.
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"none"});
+    MICRO_CHECK(socket.is_open());
+
+    const std::vector<OutFrame> frames = frames_in(stream.written());
+    MICRO_CHECK_EQ(frames.size(), std::size_t{1});
+    if (frames.size() == 1)
+    {
+        MICRO_CHECK_EQ(static_cast<int>(frames.front().opcode), static_cast<int>(kOpPong));
+        MICRO_CHECK_EQ(frames.front().payload, std::string{"ask"});
+    }
+}
+
+MICRO_TEST(a_close_frame_already_there_comes_out_of_a_zero_wait)
+{
+    MemoryStream stream;
+    WebSocket socket;
+    MICRO_CHECK(open_session(stream, socket));
+
+    stream.feed(server_frame(kOpClose, close_payload(1000, "bye")));
+
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(message.kind), std::string{"close"});
+    MICRO_CHECK_EQ(static_cast<int>(message.close_code), 1000);
+    MICRO_CHECK(!socket.is_open());
+}
+
+MICRO_TEST(a_handshake_that_is_already_there_opens_the_connection_with_a_zero_wait)
+{
+    MemoryStream stream;
+    stream.feed(handshake_response());
+
+    WebSocket socket;
+    MICRO_CHECK_EQ(name_of(socket.connect(stream, sample_request(), 0)), std::string{"ok"});
+    MICRO_CHECK(socket.is_open());
+
+    // A zero wait refuses to wait, not to try: the request went out first.
+    MICRO_CHECK(contains(stream.written(), "Sec-WebSocket-Key: " + std::string{kSampleKey}));
+}
+
+MICRO_TEST(a_handshake_with_nothing_to_read_answers_timeout_after_one_look)
+{
+    MemoryStream stream;
+    WebSocket socket;
+
+    const auto started = std::chrono::steady_clock::now();
+    MICRO_CHECK_EQ(name_of(socket.connect(stream, sample_request(), 0)), std::string{"timeout"});
+    const long long spent = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - started)
+                                .count();
+
+    MICRO_CHECK(spent < 100);
+    MICRO_CHECK(!socket.is_open());
+    MICRO_CHECK(!socket.error().empty());
+    MICRO_CHECK(contains(stream.written(), "GET /?v=10&encoding=json HTTP/1.1\r\n"));
 }

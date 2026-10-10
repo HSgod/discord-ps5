@@ -159,13 +159,16 @@ core::StreamResult TcpStream::read(std::uint8_t *data, std::size_t size, int tim
     if (fd_ < 0)
         return {core::StreamStatus::failed, 0};
 
-    // A timeout of zero would mean "wait forever" to the kernel, which is never
-    // what a caller here means by it.
-    set_timeout(fd_, SO_RCVTIMEO, timeout_ms > 0 ? timeout_ms : 1);
+    // Zero means "look, do not wait", and that is the one wait the kernel cannot
+    // express through SO_RCVTIMEO, where zero reads as "no timeout at all" and
+    // would block forever. MSG_DONTWAIT says it exactly. Anything shorter than a
+    // millisecond is not worth a round trip to the socket layer.
+    const bool look_only = timeout_ms <= 0;
+    set_timeout(fd_, SO_RCVTIMEO, look_only ? 1 : timeout_ms);
 
     while (true)
     {
-        const ssize_t got = ::recv(fd_, data, size, 0);
+        const ssize_t got = ::recv(fd_, data, size, look_only ? MSG_DONTWAIT : 0);
         if (got > 0)
             return {core::StreamStatus::ok, static_cast<std::size_t>(got)};
         if (got == 0)

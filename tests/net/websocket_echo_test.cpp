@@ -12,6 +12,7 @@
 #include "tests/micro_test.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -378,4 +379,38 @@ MICRO_TEST(a_connect_to_a_port_nobody_listens_on_fails_with_a_reason)
     MICRO_CHECK(!stream.connect("127.0.0.1", 1, 1000));
     MICRO_CHECK(!stream.is_open());
     MICRO_CHECK(!stream.error().empty());
+}
+
+MICRO_TEST(a_zero_wait_on_a_live_socket_comes_back_at_once)
+{
+    WsEchoServer server;
+    if (!server.start(WsEchoServer::Mode::echo))
+    {
+        MICRO_CHECK(false);
+        return;
+    }
+
+    TcpStream stream;
+    MICRO_CHECK(stream.connect("127.0.0.1", server.port(), 2000));
+
+    WebSocket socket;
+    MICRO_CHECK_EQ(name_of(socket.connect(stream, request_for(server.port()), 2000)),
+                   std::string{"ok"});
+
+    // The server has nothing to say yet, so the poll has to answer at once
+    // rather than sit on a socket that has nothing to give it.
+    const auto started = std::chrono::steady_clock::now();
+    Message message;
+    MICRO_CHECK_EQ(name_of(socket.receive(0, message)), std::string{"timeout"});
+    const long long spent = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - started)
+                                .count();
+
+    MICRO_CHECK(spent < 100);
+    MICRO_CHECK(socket.is_open());
+
+    // A poll is not a close: the connection carries on as if nothing happened.
+    MICRO_CHECK_EQ(name_of(socket.send_text("still here", 2000)), std::string{"ok"});
+    MICRO_CHECK_EQ(name_of(socket.receive(2000, message)), std::string{"ok"});
+    MICRO_CHECK_EQ(message.payload, std::string{"still here"});
 }
