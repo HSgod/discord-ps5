@@ -19,10 +19,10 @@
  * answers HELLO to any connection, and the connection is closed cleanly with a
  * close frame as soon as HELLO has been read.
  *
- * The HTTP client below is this tool's own, and deliberately so: what T3.4 asks
- * for is a diagnostic run, not an HTTP stack. When the daemon needs the same GET
- * for the console criterion of T3.1, that is the moment to lift it into core/ --
- * one caller is not a library.
+ * Since T4.0 the GET goes through core/http.hpp, the client the daemon uses for
+ * REST: the tool used to carry a reader of its own because one caller is not a
+ * library, and the daemon made it a second caller. The tool keeps what is its own --
+ * the TLS dial, the JSON, the websocket -- and nothing else.
  */
 
 #include <chrono>
@@ -31,9 +31,9 @@
 #include <string>
 #include <string_view>
 
+#include "core/http.hpp"
 #include "core/json.hpp"
 #include "core/random.hpp"
-#include "core/stream.hpp"
 #include "core/websocket.hpp"
 #include "platform/net/ca_bundle.hpp"
 #include "platform/net/tcp_stream.hpp"
@@ -41,10 +41,13 @@
 
 namespace
 {
+using accord::core::Header;
+using accord::core::HttpClient;
+using accord::core::HttpRequest;
+using accord::core::HttpResponse;
+using accord::core::HttpStatus;
 using accord::core::Message;
 using accord::core::MessageKind;
-using accord::core::StreamResult;
-using accord::core::StreamStatus;
 using accord::core::WebSocket;
 using accord::core::WebSocketRequest;
 using accord::core::json::Document;
@@ -88,148 +91,6 @@ std::string name_of(MessageKind kind)
     return "?";
 }
 
-std::string lower_ascii(std::string_view text)
-{
-    std::string out;
-    out.reserve(text.size());
-    for (char c : text)
-        out.push_back(c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c);
-    return out;
-}
-
-// One header, by name, from the block of them the answer carried.
-std::string header_value(std::string_view head, std::string_view name)
-{
-    const std::string wanted = lower_ascii(name) + ":";
-    std::size_t at = 0;
-    while (at < head.size())
-    {
-        const std::size_t end = head.find("\r\n", at);
-        const std::string_view line = head.substr(at, end == std::string_view::npos ? end : end - at);
-        const std::string folded = lower_ascii(line);
-        if (folded.compare(0, wanted.size(), wanted) == 0)
-        {
-            std::string_view value{line.data() + wanted.size(), line.size() - wanted.size()};
-            while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
-                value.remove_prefix(1);
-            return std::string{value};
-        }
-        if (end == std::string_view::npos)
-            break;
-        at = end + 2;
-    }
-    return {};
-}
-
-// A chunked body, decoded. Discord's edge uses it on some answers, and a tool
-// that printed the chunk sizes as if they were the document would be reporting
-// its own bug rather than the gateway's.
-bool decode_chunked(std::string_view body, std::string &out)
-{
-    std::size_t at = 0;
-    while (at < body.size())
-    {
-        const std::size_t line_end = body.find("\r\n", at);
-        if (line_end == std::string_view::npos)
-            return false;
-        const std::string_view header = body.substr(at, line_end - at);
-        std::size_t size = 0;
-        {
-            std::size_t digits = header.find(';');
-            if (digits == std::string_view::npos)
-                digits = header.size();
-            for (std::size_t i = 0; i < digits; ++i)
-            {
-                const char c = header[i];
-                const int value = c >= '0' && c <= '9'   ? c - '0'
-                                  : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                                  : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                                                         : -1;
-                if (value < 0)
-                    return false;
-                size = size * 16 + static_cast<std::size_t>(value);
-            }
-        }
-        at = line_end + 2;
-        if (size == 0)
-            return true;
-        if (at + size > body.size())
-            return false;
-        out.append(body.data() + at, size);
-        at += size + 2; // and the CRLF after the chunk
-    }
-    return true;
-}
-
-// The status line, the headers and the body of one HTTP answer.
-struct Answer
-{
-    int status = 0;
-    std::string reason;
-    std::string body;
-    bool decode_ok = false;
-};
-
-Answer split_answer(std::string_view raw)
-{
-    Answer answer;
-    const std::size_t first_line = raw.find("\r\n");
-    if (first_line == std::string_view::npos)
-        return answer;
-    const std::string_view status = raw.substr(0, first_line);
-    const std::size_t first_space = status.find(' ');
-    if (first_space == std::string_view::npos)
-        return answer;
-    for (std::size_t at = first_space + 1; at < status.size() && status[at] != ' '; ++at)
-        answer.status = answer.status * 10 + (status[at] - '0');
-    const std::size_t second_space = status.find(' ', first_space + 1);
-    answer.reason = second_space == std::string_view::npos
-                        ? std::string{status.substr(first_space + 1)}
-                        : std::string{status.substr(second_space + 1)};
-
-    const std::size_t head_end = raw.find("\r\n\r\n");
-    if (head_end == std::string_view::npos)
-        return answer;
-    const std::string_view head = raw.substr(0, head_end);
-    const std::string_view body = raw.substr(head_end + 4);
-
-    const std::string encoding = lower_ascii(header_value(head, "transfer-encoding"));
-    if (encoding.find("chunked") != std::string::npos)
-        answer.decode_ok = decode_chunked(body, answer.body);
-    else
-    {
-        answer.body = std::string{body};
-        answer.decode_ok = true;
-    }
-    return answer;
-}
-
-// Reads until the peer closes, which `Connection: close` asks it to do.
-bool read_whole(TlsStream &tls, std::int64_t deadline, std::string &out)
-{
-    while (true)
-    {
-        if (left_ms(deadline) == 0)
-        {
-            std::fprintf(stderr, "the answer did not end inside the wait\n");
-            return false;
-        }
-        std::uint8_t buffer[4096];
-        const StreamResult got = tls.read(buffer, sizeof(buffer), static_cast<int>(left_ms(deadline)));
-        if (got.status == StreamStatus::ok)
-        {
-            out.append(reinterpret_cast<const char *>(buffer), got.transferred);
-            continue;
-        }
-        if (got.status == StreamStatus::closed)
-            return true;
-        if (got.status == StreamStatus::timeout)
-            continue; // the deadline above is what ends this
-        std::fprintf(stderr, "the answer broke off: %s\n", tls.error().c_str());
-        return false;
-    }
-}
-
 // Step one: the gateway address, over HTTPS, verified against the pinned roots.
 bool fetch_gateway_address(std::int64_t deadline, std::string &url)
 {
@@ -256,32 +117,22 @@ bool fetch_gateway_address(std::int64_t deadline, std::string &url)
                 tls.peer_subject().c_str(),
                 static_cast<long long>(now_ms() - handshake_began));
 
-    std::string request{"GET "};
-    request += kGatewayPath;
-    request += " HTTP/1.1\r\nHost: ";
-    request += kApiHost;
-    request += "\r\nUser-Agent: accord-gateway-hello (T3.4)\r\nAccept: application/json\r\n"
-               "Connection: close\r\n\r\n";
+    HttpRequest request = HttpRequest::get(std::string{kApiHost}, std::string{kGatewayPath});
+    request.headers.push_back(Header{"User-Agent", "accord-gateway-hello (T3.4)"});
+    request.headers.push_back(Header{"Accept", "application/json"});
 
-    const StreamResult written = tls.write(reinterpret_cast<const std::uint8_t *>(request.data()),
-                                          request.size(), static_cast<int>(left_ms(deadline)));
-    if (written.status != StreamStatus::ok || written.transferred != request.size())
+    HttpResponse answer;
+    HttpClient http;
+    const HttpStatus asked = http.send(tls, request, static_cast<int>(left_ms(deadline)), answer);
+    if (asked != HttpStatus::ok)
     {
-        std::fprintf(stderr, "the request did not go out: %s\n", tls.error().c_str());
+        std::fprintf(stderr, "the request did not go out or the answer did not come back: %s\n",
+                     http.error().c_str());
         return false;
     }
 
-    std::string raw;
-    if (!read_whole(tls, deadline, raw))
-        return false;
-
-    const Answer answer = split_answer(raw);
-    std::printf("HTTP %d %s (%zu bytes)\n", answer.status, answer.reason.c_str(), raw.size());
-    if (!answer.decode_ok)
-    {
-        std::fprintf(stderr, "the answer body did not decode\n");
-        return false;
-    }
+    std::printf("HTTP %d %s (%zu bytes of body)\n", answer.status, answer.reason.c_str(),
+                answer.body.size());
     if (answer.status != 200)
     {
         std::fprintf(stderr, "the gateway address answered %d, not 200\n", answer.status);
