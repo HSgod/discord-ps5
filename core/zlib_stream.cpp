@@ -22,7 +22,10 @@ namespace
 constexpr std::string_view kFlushMarker{"\x00\x00\xff\xff", 4};
 
 // How much output one inflate() call may ask for. The message limit is 16 MiB,
-// so this is only about how often the loop comes up for air.
+// so this is only about how often the loop comes up for air. The buffer itself
+// lives in Impl rather than on the stack of inflate_message(), which is where a
+// 64 KiB frame per call would meet a thread whose stack size this code does not
+// get to choose (the daemon's own threads on the console).
 constexpr std::size_t kOutChunk = 64 * 1024;
 
 bool ends_with_marker(std::string_view bytes) noexcept
@@ -41,6 +44,9 @@ struct ZlibStream::Impl
     ZlibStatus status = ZlibStatus::ok;
     bool has_ready = false; // ready may be an empty message, so it has its own flag
     bool started = false;   // inflateInit has run
+    // Where inflate() writes, one message at a time. Here and not on the stack:
+    // see kOutChunk.
+    std::uint8_t chunk[kOutChunk]{};
 
     bool start();
     void give_up(ZlibStatus why, std::string text);
@@ -82,7 +88,6 @@ ZlibStatus ZlibStream::Impl::inflate_message()
     inflater.avail_in = static_cast<uInt>(pending.size());
 
     std::string message;
-    std::uint8_t chunk[kOutChunk];
     while (true)
     {
         inflater.next_out = chunk;

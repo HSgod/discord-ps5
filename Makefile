@@ -93,6 +93,50 @@ $(ZLIB_OBJ_DIR)/%.o: $(ZLIB_LIB)/%.c
 	@mkdir -p $(@D)
 	$(CC) -O2 -Wall -Wextra -c $< -o $@
 
+# platform/net/tls_stream.cpp is TLS on OpenSSL 3.5.2. The daemon links the pair
+# cross-built for the console toolchain (tools/dave/build-openssl.sh); the host
+# tests link their own native build of the same version, so that what they check
+# is what ships and not whatever OpenSSL the machine happens to have. Both land
+# in build/, which git ignores, and both arrive by themselves -- the first
+# `make test` on a fresh checkout pays for the host build once.
+OPENSSL_HOST := build/openssl-host/prefix
+OPENSSL_HOST_LIBS := $(OPENSSL_HOST)/lib/libssl.a $(OPENSSL_HOST)/lib/libcrypto.a
+
+.PHONY: openssl-host
+
+# Same shape as the rules above: anything missing from the prefix is a reason to
+# run the build script, which does nothing when the prefix is already there.
+$(OPENSSL_HOST)/lib/%.a:
+	@bash tools/build-openssl-host.sh
+
+openssl-host: $(OPENSSL_HOST_LIBS)
+
+# The roots the TLS client verifies against: Mozilla's, as curl publishes them,
+# fetched at a pinned extraction date by tools/fetch-cacert.sh into
+# third_party/cacert (not committed). platform/net/ca_bundle.hpp reads the
+# embedded copy, which tools/embed-cacert.sh generates from that file, so the
+# host tests, the daemon and anything later all carry the same roots.
+CACERT_LIB := third_party/cacert
+CA_SRC     := build/cacert/ca_bundle.cpp
+CA_OBJ     := build/cacert/ca_bundle.o
+
+.PHONY: cacert-lib
+
+$(CACERT_LIB)/%:
+	@bash tools/fetch-cacert.sh
+
+cacert-lib: $(CACERT_LIB)/cacert.pem
+
+$(CA_SRC): $(CACERT_LIB)/cacert.pem tools/embed-cacert.sh
+	@bash tools/embed-cacert.sh $@
+
+# -Wno-overlength-strings: the bundle is 189 KB inside one character array, which
+# is the point of embedding it, and that warning says exactly that and nothing
+# else. The generated file repeats this at the top of itself.
+$(CA_OBJ): $(CA_SRC)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -Wno-overlength-strings -I. -c $< -o $@
+
 # Which of the kit's themes the snapshots are rendered in.
 THEME ?= acrylic
 
@@ -144,17 +188,24 @@ ffpkg: stage opengl
 	@cp -a $(BOILERPLATE)/dist/$(TITLE_ID).ffpkg dist/
 	@printf '%s\n' "==> [ffpkg] dist/$(TITLE_ID).ffpkg"
 
-$(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(ZLIB_FIXTURE_OBJECTS)
+$(HOST_BINARY): $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(ZLIB_FIXTURE_OBJECTS) $(CA_OBJ) \
+                $(OPENSSL_HOST_LIBS)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I. $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(ZLIB_FIXTURE_OBJECTS) -o $@
+	$(CXX) $(CXXFLAGS) -I. -I$(OPENSSL_HOST)/include $(HOST_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) \
+	    $(ZLIB_FIXTURE_OBJECTS) $(CA_OBJ) $(OPENSSL_HOST)/lib/libssl.a \
+	    $(OPENSSL_HOST)/lib/libcrypto.a -o $@
 
 test: $(HOST_BINARY)
 	@printf '%s\n' '==> [test] host unit tests'
 	@./$(HOST_BINARY)
 
-$(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS)
+# The soak is not about TLS, but it compiles the same platform/net and
+# tests/support sources `make test` does -- that is what its glob is -- so it
+# needs OpenSSL's headers and archives as well to link.
+$(SOAK_BINARY): $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) $(OPENSSL_HOST_LIBS)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I. $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) -o $@
+	$(CXX) $(CXXFLAGS) -I. -I$(OPENSSL_HOST)/include $(SOAK_SOURCES) $(JSON_OBJ) $(ZLIB_OBJECTS) \
+	    $(OPENSSL_HOST)/lib/libssl.a $(OPENSSL_HOST)/lib/libcrypto.a -o $@
 
 # Ten minutes of frames over loopback TCP, on one connection. The log of a run
 # is what T3.3 asks for, so it is kept: build/ws-soak.log.
@@ -169,7 +220,7 @@ host-snapshots:
 
 # The daemon is a payload, not a title: the bare SDK builds it rather than the
 # boilerplate harness, and it lands in dist/ as a single .elf.
-payload: $(JSON_LIB)/yyjson.c $(ZLIB_LIB)/zlib.h
+payload: $(JSON_LIB)/yyjson.c $(ZLIB_LIB)/zlib.h $(CACERT_LIB)/cacert.pem
 	@printf '%s\n' '==> [payload] background daemon (elf) in the builder container'
 	@scripts/dev.sh bash tools/build-daemon-payload.sh
 

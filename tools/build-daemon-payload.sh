@@ -11,6 +11,12 @@
 # archives built for this toolchain by tools/dave/. Those live in build/, which
 # is gitignored, so a fresh checkout builds them first with `make dave-deps`.
 # DAVE_PREFIX points somewhere else than build/dave/prefix-ps5 if needed.
+#
+# OpenSSL is used twice over: mlspp reaches libcrypto through its own needs, and
+# platform/net/tls_stream.cpp (T3.1) is a TLS client on libssl from the same
+# prefix. The roots it verifies against come from third_party/cacert, fetched at
+# a pinned extraction by tools/fetch-cacert.sh, and are embedded -- the payload
+# has no package and no asset directory to read a file from.
 
 set -euo pipefail
 
@@ -66,6 +72,9 @@ dave_libs=(
     "$dave_prefix/lib/libtls_syntax.a"
     "$dave_prefix/lib/libbytes.a"
     "$dave_prefix/lib/libcrypto.a"
+    # The TLS client of platform/net/tls_stream.cpp is the second user of this
+    # prefix: libssl for the protocol, libcrypto above for the certificates.
+    "$dave_prefix/lib/libssl.a"
 )
 for lib in "${dave_libs[@]}"; do
     if [ ! -f "$lib" ]; then
@@ -75,10 +84,28 @@ for lib in "${dave_libs[@]}"; do
     fi
 done
 
+# The pinned roots, embedded, exactly as the host tests embed theirs -- into its
+# own build directory, because the two objects come from the same generated
+# source but not from the same compiler.
+ca_bundle="$root/third_party/cacert/cacert.pem"
+if [ ! -f "$ca_bundle" ]; then
+    printf '%s\n' "==> [payload] missing $ca_bundle" >&2
+    printf '%s\n' "    fetch it first: bash tools/fetch-cacert.sh" >&2
+    exit 1
+fi
+ca_dir="$root/build/cacert-ps5"
+mkdir -p "$ca_dir"
+bash "$root/tools/embed-cacert.sh" "$ca_dir/ca_bundle.cpp"
+"$cc" -std=c++20 -O2 -Wall -Wextra -Wno-overlength-strings -I. \
+    -c "$ca_dir/ca_bundle.cpp" -o "$ca_dir/ca_bundle.o"
+
+# platform/net is part of the payload as of T3.1: core/stream.hpp is the seam the
+# gateway socket and the voice socket are written against, and its two
+# implementations -- TcpStream and TlsStream -- are what the daemon will open.
 sources=()
 while IFS= read -r source; do
     sources+=("$source")
-done < <(find daemon/src core platform/ps5/dave -name '*.cpp' | sort)
+done < <(find daemon/src core platform/net platform/ps5/dave -name '*.cpp' | sort)
 
 # The archives go into a group because they reference each other both ways
 # (mlspp pulls in hpke and tls_syntax, tls_syntax pulls in bytes).
@@ -86,7 +113,7 @@ done < <(find daemon/src core platform/ps5/dave -name '*.cpp' | sort)
 # dave_prefix/include/mlspp so that the <namespace.h> and <tls/...> inside them
 # resolve. The unwind self-test (T6.0-3) includes one of them.
 "$cc" -std=c++20 -O2 -Wall -Wextra -I. -I"$dave_prefix/include" -I"$dave_prefix/include/mlspp" \
-    -o "$out" "${sources[@]}" "$yyjson_obj" "${zlib_objects[@]}" \
+    -o "$out" "${sources[@]}" "$yyjson_obj" "${zlib_objects[@]}" "$ca_dir/ca_bundle.o" \
     -Wl,--start-group "${dave_libs[@]}" -Wl,--end-group \
     -lSceAudioOut
 

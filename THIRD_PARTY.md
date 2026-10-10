@@ -36,8 +36,8 @@ Three artifacts these libraries end up in:
   (`make host-snapshots`, drawn with the container's Mesa).
 
 All of them are fetched or built into `build/`, `third_party/ps5-opengl`,
-`third_party/yyjson` and `third_party/zlib`, which git ignores; the repository holds
-only the scripts with the pinned versions.
+`third_party/yyjson`, `third_party/zlib` and `third_party/cacert`, which git ignores;
+the repository holds only the scripts with the pinned versions.
 
 | Component | Version / pin | Licence | Where it is linked |
 |---|---|---|---|
@@ -45,7 +45,8 @@ only the scripts with the pinned versions.
 | [libdave](https://github.com/discord/libdave) | commit `8de72b1f8a2ac3c5a5270755bb8091a62e3c6169` | MIT | `accordd.elf` (voice E2EE, T6.0-2) |
 | [cisco/mlspp](https://github.com/cisco/mlspp) | commit `fc724c3100ce3b5d8565dbd6d93648a440991a8c` | BSD-2-Clause (the licence at the repository root covers `lib/hpke`, `lib/tls_syntax` and `lib/bytes` too: those carry no licence file of their own) | `accordd.elf`: `libmlspp.a`, `libhpke.a`, `libtls_syntax.a`, `libbytes.a` (`libmls_ds.a` and `libmls_vectors.a` are built but not linked) |
 | [nlohmann/json](https://github.com/nlohmann/json) | tag `v3.11.3` | MIT | nowhere directly: it is a header-only dependency of mlspp and goes into mlspp's objects when those are built (`tools/dave/build-mlspp.sh`). **Forbidden in `core/`** — it throws, and `JSON_NOEXCEPTION` turns an error into `abort()`; see T3.2 |
-| [OpenSSL](https://github.com/openssl/openssl) | 3.5.2 (tarball plus the sha256 OpenSSL itself publishes) | Apache-2.0 | `libcrypto.a` in `accordd.elf` (reached through mlspp); `libssl.a` is built in the same prefix and waits for the TLS client of T3.1 |
+| [OpenSSL](https://github.com/openssl/openssl) | 3.5.2 (tarball plus the sha256 OpenSSL itself publishes) | Apache-2.0 | `accordd.elf`: `libcrypto.a` (reached through mlspp) and `libssl.a` (`platform/net/tls_stream.cpp`, T3.1), both from the prefix `tools/dave/build-openssl.sh` builds. `build/host-tests` links a **second, native** build of the same version (`tools/build-openssl-host.sh`), so the tests exercise the version that ships instead of whatever OpenSSL is installed on the machine |
+| [Mozilla CA bundle](https://curl.se/docs/caextract.html) (as curl publishes it) | extraction `2026-09-25`, `cacert-2026-09-25.pem`, 121 certificates, sha256 `a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505` — `tools/fetch-cacert.sh` checks the hash and the count | MPL-2.0: the page states the bundle is "licensed under the same license as the Mozilla source file" it is converted from | the roots `platform/net/tls_stream.cpp` verifies against, embedded as a string by `tools/embed-cacert.sh` → `build/host-tests` and `accordd.elf` (T3.1) |
 | [yyjson](https://github.com/ibireme/yyjson) | 0.13.0, commit `6447536015f3d600f3d65323b10976103b337ca7` | MIT | `core/json.cpp` → `build/host-tests`, `accordd.elf` and `eboot.bin` (T3.2) |
 | [zlib](https://zlib.net) | 1.3.2, tarball `zlib-1.3.2.tar.gz` with the sha256 zlib.net publishes (`tools/fetch-zlib.sh`) | Zlib | `core/zlib_stream.cpp` → `build/host-tests`, `accordd.elf` and `eboot.bin` (T3.3b) |
 
@@ -89,3 +90,26 @@ will be confirmed and pinned when they are added. Nothing in this table is linke
   the title and the daemon only ever read a compressed stream, never write one.
 - The zlib pin was checked on download: the sha256 of `zlib-1.3.2.tar.gz` matches the
   one printed on zlib.net, and `tools/fetch-zlib.sh` refuses anything else.
+- The CA bundle is pinned by extraction date and not by the file name `cacert.pem`:
+  curl replaces that name in place, so the only way to hold one bundle still is the
+  dated `cacert-YYYY-MM-DD.pem` beside its own `.sha256`. `tools/fetch-cacert.sh`
+  checks the sha256 and then requires a minimum number of certificates in the file, so
+  a stub or an error page cannot pass as a root store. The pin was checked on download
+  (2026-10-10): the sha256 matches curl's, the file holds the 121 certificates its own
+  header claims, and the extraction date in that header is the same day the page names.
+- The bundle is **embedded** in the binaries rather than shipped beside them: the daemon
+  is a bare payload with no package and no asset directory, and a title would have to
+  carry a copy through the `.ffpkg` for a client the daemon is the one that uses. The
+  embedded copy and `third_party/cacert/cacert.pem` are byte-identical, and
+  `tests/net/tls_stream_test.cpp` checks that they are.
+- That one generated file holds 189 KB in a single string literal, past the length a C++
+  compiler has to support, so it alone is built with `-Wno-overlength-strings` (see its
+  own header, the Makefile and `tools/build-daemon-payload.sh`). It is the only warning
+  suppressed anywhere in the build.
+- The bundle carries one non-ASCII line (a certification authority's own name in its
+  subject comment). `tools/embed-cacert.sh` passes bytes through untouched and escapes
+  only `\` and `"`, so what the TLS library reads is the published file, byte for byte.
+- The OpenSSL version is the same on both sides of the build on purpose: the host tests
+  configure the same pinned tarball with the same `no-*` set as the console build
+  (`tools/build-openssl-host.sh` and `tools/dave/build-openssl.sh`), so a test that
+  passes is a statement about the library the artifacts ship.

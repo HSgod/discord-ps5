@@ -21,6 +21,11 @@ third_party/yyjson/
 # publishes.
 third_party/zlib/
 
+# And for the roots platform/net/tls_stream.cpp verifies against: Mozilla's, as
+# curl publishes them, fetched at a pinned extraction by tools/fetch-cacert.sh
+# and embedded by tools/embed-cacert.sh (see THIRD_PARTY.md).
+third_party/cacert/
+
 # macOS
 .DS_Store
 
